@@ -14,6 +14,7 @@ export interface ExercicioData {
     usuarioId: number
     nomeUsuario: string
     corUsuario: string
+    avatarUsuario: string | null
 }
 
 export async function getExercicios(): Promise<ExercicioData[]> {
@@ -23,6 +24,7 @@ export async function getExercicios(): Promise<ExercicioData[]> {
                 select: {
                     nome: true,
                     cor: true,
+                    avatar: true,
                 },
             },
         },
@@ -40,6 +42,7 @@ export async function getExercicios(): Promise<ExercicioData[]> {
         usuarioId: e.usuarioId,
         nomeUsuario: e.usuario.nome,
         corUsuario: e.usuario.cor,
+        avatarUsuario: e.usuario.avatar,
     }))
 }
 

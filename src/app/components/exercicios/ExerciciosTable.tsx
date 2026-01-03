@@ -85,16 +85,34 @@ const columns: TableColumn<ExercicioData>[] = [
     name: "Usuário",
     selector: (row) => row.nomeUsuario,
     sortable: true,
-    right: true,
     cell: (row) => {
       const isAmarelo = row.corUsuario === "AMARELO"
-      const bgClass = isAmarelo ? "bg-amber-100 border-amber-200" : "bg-purple-100 border-purple-200"
+      const borderClass = isAmarelo ? "border-amber-400" : "border-purple-500"
+      const bgClass = isAmarelo ? "bg-amber-100" : "bg-purple-100"
       const textClass = isAmarelo ? "text-amber-700" : "text-purple-700"
+      
+      // Get initials from name
+      const initials = row.nomeUsuario
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .substring(0, 2)
+        .toUpperCase()
+
       return (
-        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${bgClass} ${textClass} border`}>
-          <span className="w-1.5 h-1.5 rounded-full bg-current" />
-          {row.nomeUsuario}
-        </span>
+        <div className="flex items-center gap-2.5">
+          {row.avatarUsuario ? (
+            <img
+              src={row.avatarUsuario}
+              alt={row.nomeUsuario}
+              className={`w-9 h-9 rounded-full object-cover border-3 ml-3 ${borderClass}`}
+            />
+          ) : (
+            <div className={`w-9 h-9 rounded-full flex items-center justify-center border-3 ${borderClass} ${bgClass}`}>
+              <span className={`text-xs font-bold ${textClass}`}>{initials}</span>
+            </div>
+          )}
+        </div>
       )
     },
   },

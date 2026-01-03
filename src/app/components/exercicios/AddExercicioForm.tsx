@@ -69,11 +69,11 @@ export function AddExercicioForm({ sequenciaAtual }: AddExercicioFormProps) {
           descricao: descricao.trim() || undefined,
           duracao,
         })
-        router.push("/exercicios")
-        router.refresh()
       } catch {
         setError("Erro ao salvar exercício")
+        return
       }
+      router.push("/exercicios")
     })
   }
 
