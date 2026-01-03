@@ -1,0 +1,236 @@
+// DuoFit - Schema Prisma
+// Aplicação de competição fitness entre dois usuários
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ==========================
+// ENUMS
+// ==========================
+
+enum CorUsuario {
+  AMARELO
+  ROXO
+}
+
+enum TipoExercicio {
+  ACADEMIA // Musculação - 2 pontos por sessão
+  CARDIO // Corrida/Caminhada - 1 ponto a cada 30 min
+  OUTRO
+}
+
+enum TipoRefeicao {
+  CAFE_DA_MANHA
+  ALMOCO
+  JANTAR
+  LANCHE
+}
+
+// ==========================
+// USUÁRIO
+// ==========================
+
+model Usuario {
+  id           Int        @id @default(autoincrement())
+  nome         String
+  email        String     @unique
+  senha        String // Hash da senha
+  avatar       String? // URL da imagem de perfil
+  cor          CorUsuario
+  metaCalorias Float      @default(2000) // Meta diária de calorias
+  criadoEm     DateTime   @default(now())
+  atualizadoEm DateTime   @updatedAt
+
+  // Relações
+  exercicios          Exercicio[]
+  refeicoes           Refeicao[]
+  caloriasDiarias     CaloriasDiarias[]
+  pontuacoes          PontuacaoDiaria[]
+  sequencias          Sequencia[]
+  desafiosComoPessoa1 Desafio[]         @relation("DesafioPessoa1")
+  desafiosComoPessoa2 Desafio[]         @relation("DesafioPessoa2")
+}
+
+// ==========================
+// DESAFIO / COMPETIÇÃO
+// ==========================
+
+model Desafio {
+  id         Int      @id @default(autoincrement())
+  nome       String   @default("Desafio Fitness")
+  pessoa1Id  Int
+  pessoa2Id  Int
+  dataInicio DateTime
+  dataFim    DateTime
+  ativo      Boolean  @default(true)
+  criadoEm   DateTime @default(now())
+
+  pessoa1 Usuario @relation("DesafioPessoa1", fields: [pessoa1Id], references: [id])
+  pessoa2 Usuario @relation("DesafioPessoa2", fields: [pessoa2Id], references: [id])
+}
+
+// ==========================
+// SEQUÊNCIA (STREAK)
+// ==========================
+
+model Sequencia {
+  id             Int      @id @default(autoincrement())
+  usuarioId      Int
+  sequenciaAtual Int      @default(0) // Dias consecutivos
+  maiorSequencia Int      @default(0) // Recorde pessoal
+  ultimaData     DateTime // Último dia ativo
+  atualizadoEm   DateTime @updatedAt
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@unique([usuarioId])
+}
+
+// ==========================
+// EXERCÍCIOS
+// ==========================
+
+model Exercicio {
+  id        Int           @id @default(autoincrement())
+  usuarioId Int
+  tipo      TipoExercicio
+  nome      String // Ex: "Corrida Matinal 5km", "Treino A - Superiores"
+  descricao String? // Ex: "Parque Ibirapuera"
+  duracao   Int // Duração em minutos
+  pontos    Int // Pontos ganhos (calculado no backend)
+  data      DateTime // Data e hora do exercício
+  criadoEm  DateTime      @default(now())
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId, data])
+}
+
+// Regras de pontuação (implementadas no backend):
+// - ACADEMIA: 2 pontos por sessão
+// - CARDIO: 1 ponto a cada 30 minutos
+
+// ==========================
+// ALIMENTOS (Catálogo)
+// ==========================
+
+model Alimento {
+  id           Int      @id @default(autoincrement())
+  nome         String   @unique
+  calorias     Float // Calorias por 100g
+  proteinas    Float    @default(0) // Proteínas por 100g
+  carboidratos Float    @default(0) // Carboidratos por 100g
+  gorduras     Float    @default(0) // Gorduras por 100g
+  icone        String? // Nome do ícone Material (ex: "egg_alt")
+  criadoEm     DateTime @default(now())
+
+  refeicoes AlimentoRefeicao[]
+}
+
+// ==========================
+// REFEIÇÕES
+// ==========================
+
+model Refeicao {
+  id             Int          @id @default(autoincrement())
+  usuarioId      Int
+  tipo           TipoRefeicao
+  data           DateTime // Data e hora da refeição
+  totalCalorias  Float        @default(0) // Calorias totais (calculado)
+  totalProteinas Float        @default(0)
+  totalCarbos    Float        @default(0)
+  totalGorduras  Float        @default(0)
+  criadoEm       DateTime     @default(now())
+
+  alimentos AlimentoRefeicao[]
+  usuario   Usuario            @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId, data])
+}
+
+// ==========================
+// RELAÇÃO REFEIÇÃO x ALIMENTO
+// ==========================
+
+model AlimentoRefeicao {
+  id           Int    @id @default(autoincrement())
+  refeicaoId   Int
+  alimentoId   Int
+  quantidade   Float // Em gramas ou unidades
+  unidade      String @default("g") // "g" ou "un"
+  calorias     Float // Calorias calculadas
+  proteinas    Float  @default(0)
+  carboidratos Float  @default(0)
+  gorduras     Float  @default(0)
+
+  refeicao Refeicao @relation(fields: [refeicaoId], references: [id], onDelete: Cascade)
+  alimento Alimento @relation(fields: [alimentoId], references: [id])
+
+  @@index([refeicaoId])
+}
+
+// ==========================
+// CONTROLE DIÁRIO DE CALORIAS
+// ==========================
+
+model CaloriasDiarias {
+  id                Int      @id @default(autoincrement())
+  usuarioId         Int
+  data              DateTime @db.Date // Apenas a data, sem hora
+  metaCalorias      Float
+  caloriasIngeridas Float    @default(0)
+  proteinas         Float    @default(0)
+  carboidratos      Float    @default(0)
+  gorduras          Float    @default(0)
+  metaAtingida      Boolean  @default(false)
+  metadeAtingida    Boolean  @default(false) // 50% da meta = pontos parciais
+  atualizadoEm      DateTime @updatedAt
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, data])
+  @@index([usuarioId, data])
+}
+
+// ==========================
+// PONTUAÇÃO DIÁRIA
+// ==========================
+
+model PontuacaoDiaria {
+  id               Int      @id @default(autoincrement())
+  usuarioId        Int
+  data             DateTime @db.Date // Apenas a data
+  pontosExercicios Int      @default(0)
+  pontosCalorias   Int      @default(0) // Meta atingida = pontos
+  pontosAgua       Int      @default(0) // Bônus por hidratação
+  pontosTotais     Int      @default(0)
+  atualizadoEm     DateTime @updatedAt
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, data])
+  @@index([usuarioId, data])
+}
+
+// ==========================
+// ATIVIDADE (Feed de atividades)
+// ==========================
+
+model Atividade {
+  id           Int      @id @default(autoincrement())
+  usuarioId    Int
+  tipo         String // "exercicio", "refeicao", "agua", "meta"
+  descricao    String // Ex: "Corrida Matinal 5km", "Almoço Saudável"
+  pontos       Int
+  icone        String? // Nome do ícone Material
+  referenciaId Int? // ID do exercício ou refeição relacionada
+  data         DateTime @default(now())
+
+  @@index([usuarioId, data])
+}
