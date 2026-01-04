@@ -23,14 +23,21 @@ const getExerciseIcon = (tipo: string): { icon: string; bgColor: string; textCol
 const formatDate = (date: Date): string => {
   const now = new Date()
   const d = new Date(date)
-  const diffDays = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24))
+  
+  // Compare dates using local date strings to avoid timezone issues
+  const nowDate = now.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })
+  const dDate = d.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })
+  
+  const yesterday = new Date(now)
+  yesterday.setDate(yesterday.getDate() - 1)
+  const yesterdayDate = yesterday.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })
 
-  if (diffDays === 0) {
-    return `Hoje, ${d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`
-  } else if (diffDays === 1) {
-    return `Ontem, ${d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`
+  if (dDate === nowDate) {
+    return `Hoje, ${d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}`
+  } else if (dDate === yesterdayDate) {
+    return `Ontem, ${d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}`
   } else {
-    return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
+    return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })
   }
 }
 

@@ -38,30 +38,38 @@ export function UserScoreCard({
       {/* Header */}
       <div className="flex justify-between items-start relative z-10">
         <div className="flex items-center gap-4">
-          <div
-            className="w-14 h-14 rounded-full bg-cover bg-center border-4"
-            style={{
-              backgroundImage: avatar
-                ? `url('${avatar}')`
-                : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-              borderColor: isAmarelo ? "#fef3c7" : "#f3e8ff",
-            }}
-          >
-            {!avatar && (
-              <div className="w-full h-full flex items-center justify-center text-white text-xl font-bold rounded-full">
-                {nome.charAt(0).toUpperCase()}
+          <div className="relative">
+            {/* Crown for leader */}
+            {isLeader && (
+              <div className="absolute -top-3 left-1/2 -translate-x-1/1 z-10">
+                <span 
+                  className="material-symbols-outlined text-2xl drop-shadow-sm"
+                  style={{ color: "#fbbf24", transform: "rotate(-16deg)", display: "block" }}
+                >
+                  crown
+                </span>
               </div>
             )}
+            <div
+              className="w-14 h-14 rounded-full bg-cover bg-center border-4"
+              style={{
+                backgroundImage: avatar
+                  ? `url('${avatar}')`
+                  : "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                borderColor: isAmarelo ? "#fef3c7" : "#f3e8ff",
+              }}
+            >
+              {!avatar && (
+                <div className="w-full h-full flex items-center justify-center text-white text-xl font-bold rounded-full">
+                  {nome.charAt(0).toUpperCase()}
+                </div>
+              )}
+            </div>
           </div>
           <div>
             <p className="text-slate-500 text-sm font-medium">
               {nome} {isCurrentUser && "(Você)"}
             </p>
-            <span
-              className={`text-xs px-2 py-0.5 rounded-full font-bold ${colorClasses}`}
-            >
-              {isLeader ? "LÍDER" : "DESAFIANTE"}
-            </span>
           </div>
         </div>
         <div className="text-right">

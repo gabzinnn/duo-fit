@@ -75,9 +75,10 @@ export async function createExercicio(data: {
         },
     })
 
-    // Update daily points
-    const hoje = new Date()
-    hoje.setHours(0, 0, 0, 0)
+    // Update daily points (use Brazil timezone)
+    const now = new Date()
+    const brazilDate = new Date(now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }))
+    const hoje = new Date(brazilDate.getFullYear(), brazilDate.getMonth(), brazilDate.getDate())
 
     await prisma.pontuacaoDiaria.upsert({
         where: {
@@ -97,6 +98,55 @@ export async function createExercicio(data: {
             pontosTotais: pontos,
         },
     })
+
+    // Update sequence (streak)
+    const sequencia = await prisma.sequencia.findUnique({
+        where: { usuarioId: data.usuarioId },
+    })
+
+    if (sequencia) {
+        const ultimaData = sequencia.ultimaData
+        const ultimaDataKey = ultimaData.toISOString().split("T")[0]
+        const hojeKey = hoje.toISOString().split("T")[0]
+
+        // Calculate yesterday
+        const ontem = new Date(hoje)
+        ontem.setDate(ontem.getDate() - 1)
+        const ontemKey = ontem.toISOString().split("T")[0]
+
+        if (ultimaDataKey === hojeKey) {
+            // Already exercised today, no change
+        } else if (ultimaDataKey === ontemKey) {
+            // Exercised yesterday, increment streak
+            await prisma.sequencia.update({
+                where: { usuarioId: data.usuarioId },
+                data: {
+                    sequenciaAtual: { increment: 1 },
+                    maiorSequencia: Math.max(sequencia.maiorSequencia, sequencia.sequenciaAtual + 1),
+                    ultimaData: hoje,
+                },
+            })
+        } else {
+            // Streak broken, reset to 1
+            await prisma.sequencia.update({
+                where: { usuarioId: data.usuarioId },
+                data: {
+                    sequenciaAtual: 1,
+                    ultimaData: hoje,
+                },
+            })
+        }
+    } else {
+        // Create new sequence record
+        await prisma.sequencia.create({
+            data: {
+                usuarioId: data.usuarioId,
+                sequenciaAtual: 1,
+                maiorSequencia: 1,
+                ultimaData: hoje,
+            },
+        })
+    }
 
     return exercicio
 }

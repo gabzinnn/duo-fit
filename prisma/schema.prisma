@@ -37,15 +37,18 @@ enum TipoRefeicao {
 // ==========================
 
 model Usuario {
-  id           Int        @id @default(autoincrement())
-  nome         String
-  email        String     @unique
-  senha        String // Hash da senha
-  avatar       String? // URL da imagem de perfil
-  cor          CorUsuario
-  metaCalorias Float      @default(2000) // Meta diária de calorias
-  criadoEm     DateTime   @default(now())
-  atualizadoEm DateTime   @updatedAt
+  id               Int        @id @default(autoincrement())
+  nome             String
+  email            String     @unique
+  senha            String // Hash da senha
+  avatar           String? // URL da imagem de perfil
+  cor              CorUsuario
+  metaCalorias     Float      @default(2000) // Meta diária de calorias
+  metaProteinas    Float      @default(150) // Meta diária de proteínas (g)
+  metaCarboidratos Float      @default(250) // Meta diária de carboidratos (g)
+  metaGorduras     Float      @default(65) // Meta diária de gorduras (g)
+  criadoEm         DateTime   @default(now())
+  atualizadoEm     DateTime   @updatedAt
 
   // Relações
   exercicios          Exercicio[]

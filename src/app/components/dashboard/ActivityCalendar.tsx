@@ -136,11 +136,11 @@ export function ActivityCalendar({
       <div className="flex gap-4 mb-4 text-xs">
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded bg-amber-100 border border-amber-200" />
-          <span className="text-slate-500">Amarelo</span>
+          <span className="text-slate-500">JuuJ</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded bg-purple-100 border border-purple-200" />
-          <span className="text-slate-500">Roxo</span>
+          <span className="text-slate-500">GB</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div

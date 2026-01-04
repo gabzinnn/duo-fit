@@ -1,0 +1,6 @@
+export { AlimentacaoContent } from "./AlimentacaoContent"
+export { AlimentacaoHeader } from "./AlimentacaoHeader"
+export { CaloriesProgressCard } from "./CaloriesProgressCard"
+export { WeeklyHistoryChart } from "./WeeklyHistoryChart"
+export { MealCard } from "./MealCard"
+export { FoodItem } from "./FoodItem"

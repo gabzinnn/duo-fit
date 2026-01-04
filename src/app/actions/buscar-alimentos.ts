@@ -3,6 +3,10 @@
 import prisma from "@/lib/prisma";
 import { normalizarOpenFoodFacts, AlimentoNormalizado } from "@/utils/normalizar-alimento";
 
+// Simple in-memory cache for Open Food Facts results
+const apiCache = new Map<string, { data: AlimentoNormalizado[]; timestamp: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 // Calcula score de relevância (maior = mais relevante)
 function calcularRelevancia(nome: string, query: string): number {
     const nomeNorm = nome.toLowerCase().trim();
@@ -27,14 +31,33 @@ function calcularRelevancia(nome: string, query: string): number {
     return 10;
 }
 
+// Fetch with timeout
+async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+        const response = await fetch(url, {
+            signal: controller.signal,
+            cache: "force-cache" // Use HTTP cache
+        });
+        return response;
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
 export async function buscarAlimentos(query: string): Promise<AlimentoNormalizado[]> {
     if (!query || query.length < 2) return [];
 
+    const queryNorm = query.toLowerCase().trim();
+
     // ==========================
-    // 1. BUSCA LOCAL (PRISMA)
+    // PARALLEL: LOCAL + API
     // ==========================
 
-    const alimentosLocais = await prisma.alimento.findMany({
+    // 1. Local search (Prisma) - fast
+    const localPromise = prisma.alimento.findMany({
         where: {
             nome: {
                 contains: query,
@@ -44,6 +67,43 @@ export async function buscarAlimentos(query: string): Promise<AlimentoNormalizad
         take: 10
     });
 
+    // 2. Open Food Facts API - with cache and timeout
+    const apiPromise = (async (): Promise<AlimentoNormalizado[]> => {
+        // Check cache first
+        const cached = apiCache.get(queryNorm);
+        if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+            return cached.data;
+        }
+
+        try {
+            const response = await fetchWithTimeout(
+                `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(
+                    query
+                )}&search_simple=1&action=process&json=1&page_size=15&cc=br&lc=pt`,
+                3000 // 3 second timeout
+            );
+
+            const data = await response.json();
+            const results: AlimentoNormalizado[] =
+                data.products?.map(normalizarOpenFoodFacts).filter(Boolean) ?? [];
+
+            // Cache results
+            apiCache.set(queryNorm, { data: results, timestamp: Date.now() });
+
+            return results;
+        } catch {
+            // On timeout or error, return cached data if available, otherwise empty
+            return cached?.data ?? [];
+        }
+    })();
+
+    // Wait for both in parallel
+    const [alimentosLocais, externosNormalizados] = await Promise.all([
+        localPromise,
+        apiPromise
+    ]);
+
+    // Normalize local results
     const locaisNormalizados: AlimentoNormalizado[] = alimentosLocais.map((alimento) => ({
         origem: "LOCAL",
         id: alimento.id,
@@ -55,28 +115,7 @@ export async function buscarAlimentos(query: string): Promise<AlimentoNormalizad
     }));
 
     // ==========================
-    // 2. BUSCA OPEN FOOD FACTS
-    // ==========================
-
-    // Busca com prioridade para Brasil e produtos mais simples
-    const response = await fetch(
-        `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(
-            query
-        )}&search_simple=1&action=process&json=1&page_size=30&cc=br&lc=pt`,
-        {
-            cache: "no-store"
-        }
-    );
-
-    const data = await response.json();
-
-    const externosNormalizados: AlimentoNormalizado[] =
-        data.products
-            ?.map(normalizarOpenFoodFacts)
-            .filter(Boolean) ?? [];
-
-    // ==========================
-    // 3. MERGE + DEDUP + ORDENAR POR RELEVÂNCIA
+    // MERGE + DEDUP + SORT
     // ==========================
 
     const mapa = new Map<string, AlimentoNormalizado>();
@@ -102,3 +141,4 @@ export async function buscarAlimentos(query: string): Promise<AlimentoNormalizad
 
     return resultadosOrdenados.slice(0, 15);
 }
+

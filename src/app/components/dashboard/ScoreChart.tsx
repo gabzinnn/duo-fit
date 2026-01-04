@@ -25,7 +25,6 @@ export function ScoreChart({
 }: ScoreChartProps) {
   const cor1 = usuario1Cor === "AMARELO" ? "#f6e2b9" : "#9333ea"
   const cor2 = usuario2Cor === "AMARELO" ? "#f6e2b9" : "#9333ea"
-
   const options: ApexCharts.ApexOptions = {
     chart: {
       type: "line",
@@ -76,6 +75,7 @@ export function ScoreChart({
     },
   }
 
+  // Usa pontuação diária (semanal, não acumulada)
   const series = [
     {
       name: usuario1Nome,
