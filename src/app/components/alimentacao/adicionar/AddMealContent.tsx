@@ -14,7 +14,9 @@ import { FoodSearchInput } from "./FoodSearchInput"
 import { StagedFoodList } from "./StagedFoodList"
 import { MealSummaryCard } from "./MealSummaryCard"
 import { CreateFoodModal } from "./CreateFoodModal"
+import { PhotoAnalyzer } from "./PhotoAnalyzer"
 import type { StagedItem } from "./StagedFoodItem"
+import type { AlimentoAnalisado } from "@/app/actions/analisar-foto"
 
 export function AddMealContent() {
   const router = useRouter()
@@ -91,6 +93,22 @@ export function AddMealContent() {
     setStagedItems((prev) => [...prev, newItem])
   }
 
+  const handleFoodsFromPhoto = (foods: AlimentoAnalisado[]) => {
+    const newItems: StagedItem[] = foods.map((food) => ({
+      id: `${Date.now()}-${Math.random()}-${food.nome}`,
+      alimentoId: food.alimentoId ?? -Date.now(), // Use DB ID if available
+      nome: food.nome,
+      quantidade: food.quantidade,
+      unidade: food.unidade,
+      calorias: food.calorias,
+      proteinas: food.proteinas,
+      carboidratos: food.carboidratos,
+      gorduras: food.gorduras,
+      isPreCalculated: true, // Values are already calculated for the quantity
+    }))
+    setStagedItems((prev) => [...prev, ...newItems])
+  }
+
   const handleSave = async () => {
     if (!usuario?.id || stagedItems.length === 0) return
 
@@ -145,6 +163,7 @@ export function AddMealContent() {
             {/* Left Column - Input */}
             <div className="lg:col-span-7 flex flex-col gap-6">
               <MealTypeSelector selected={mealType} onChange={setMealType} />
+              <PhotoAnalyzer onFoodsDetected={handleFoodsFromPhoto} />
               <FoodSearchInput
                 onSelect={handleAddFood}
                 onCreateClick={() => setShowCreateModal(true)}

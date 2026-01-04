@@ -17,10 +17,10 @@ export function MealSummaryCard({
   onCancel,
   saving,
 }: MealSummaryCardProps) {
-  // Calculate totals from items
+  // Calculate totals from items (respect isPreCalculated flag)
   const totals = items.reduce(
     (acc, item) => {
-      const fator = item.quantidade / 100
+      const fator = item.isPreCalculated ? 1 : item.quantidade / 100
       return {
         calorias: acc.calorias + item.calorias * fator,
         proteinas: acc.proteinas + item.proteinas * fator,

@@ -5,3 +5,5 @@ export { StagedFoodItem, type StagedItem } from "./StagedFoodItem"
 export { StagedFoodList } from "./StagedFoodList"
 export { MealSummaryCard } from "./MealSummaryCard"
 export { CreateFoodModal } from "./CreateFoodModal"
+export { PhotoAnalyzer } from "./PhotoAnalyzer"
+

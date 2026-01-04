@@ -8,6 +8,7 @@ export interface StagedItem {
   proteinas: number
   carboidratos: number
   gorduras: number
+  isPreCalculated?: boolean // True when values already include quantity (e.g., from photo analysis)
 }
 
 interface StagedFoodItemProps {
@@ -16,8 +17,8 @@ interface StagedFoodItemProps {
 }
 
 export function StagedFoodItem({ item, onRemove }: StagedFoodItemProps) {
-  // Calculate macros based on quantity
-  const fator = item.quantidade / 100
+  // Calculate macros based on quantity (skip if already pre-calculated)
+  const fator = item.isPreCalculated ? 1 : item.quantidade / 100
   const calorias = Math.round(item.calorias * fator)
   const proteinas = Math.round(item.proteinas * fator)
 

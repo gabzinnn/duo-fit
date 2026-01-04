@@ -79,7 +79,7 @@ export async function buscarAlimentos(query: string): Promise<AlimentoNormalizad
             const response = await fetchWithTimeout(
                 `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(
                     query
-                )}&search_simple=1&action=process&json=1&page_size=15&cc=br&lc=pt`,
+                )}&search_simple=1&action=process&json=1&page_size=25&cc=br&lc=pt`,
                 3000 // 3 second timeout
             );
 
