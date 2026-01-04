@@ -117,18 +117,48 @@ export function AddMealContent() {
       await salvarRefeicao(
         usuario.id,
         mealType,
-        stagedItems.map((item) => ({
-          alimentoId: item.alimentoId,
-          quantidade: item.quantidade,
-          unidade: item.unidade,
-        }))
+        stagedItems.map((item) => {
+          const isTempItem = item.alimentoId <= 0
+          const isPreCalculated = item.isPreCalculated // Values are already Total for the quantity
+          
+          const payload: any = {
+            alimentoId: item.alimentoId,
+            quantidade: item.quantidade,
+            unidade: item.unidade,
+          }
+
+          if (isTempItem) {
+            payload.nome = item.nome
+            
+            // Server expects TOTAL values for the quantity provided
+            // It will then normalize to 100g base: (Total / Qty) * 100
+            
+            if (isPreCalculated) {
+                // Item values are ALREADY totals
+                payload.calorias = item.calorias
+                payload.proteinas = item.proteinas
+                payload.carboidratos = item.carboidratos
+                payload.gorduras = item.gorduras
+            } else {
+                // Item values are BASE (per 100g)
+                // We must convert to totals
+                const fator = item.quantidade / 100
+                payload.calorias = item.calorias * fator
+                payload.proteinas = item.proteinas * fator
+                payload.carboidratos = item.carboidratos * fator
+                payload.gorduras = item.gorduras * fator
+            }
+          }
+
+          return payload
+        })
       )
-      router.push("/alimentacao")
     } catch (error) {
       console.error("Erro ao salvar refeição:", error)
     } finally {
       setSaving(false)
     }
+    router.push("/alimentacao")
   }
 
   const handleCancel = () => {

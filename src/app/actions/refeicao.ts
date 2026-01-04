@@ -20,6 +20,12 @@ export interface ItemRefeicaoInput {
     alimentoId: number
     quantidade: number
     unidade: string
+    // Optional fields for new food creation (from API/Photo)
+    nome?: string
+    calorias?: number
+    proteinas?: number
+    carboidratos?: number
+    gorduras?: number
 }
 
 // =========================
@@ -60,8 +66,47 @@ export async function salvarRefeicao(
         throw new Error("Adicione pelo menos um alimento")
     }
 
+    // Pre-process items: Create foods that don't exist (id <= 0)
+    const processedItems: ItemRefeicaoInput[] = []
+
+    // Create new foods first
+    for (const item of itens) {
+        if (item.alimentoId <= 0) {
+            // Validate required fields for creation
+            if (!item.nome || item.calorias === undefined) {
+                throw new Error(`Dados incompletos para criar alimento: ${item.nome || 'Sem nome'}`)
+            }
+
+            // Calculate base values (per 100g/ml or unit)
+            // If API/Photo returns total values for 'quantidade', we normalize to 100
+            // Assuming the input calories/macros are acceptable as "Total for this portion" 
+            // OR "Base 100g" depending on how frontend sends it. 
+            // From plan: Frontend sends TOTAL values for the portion.
+            // Formula: Base100 = (Total / Quantity) * 100
+
+            const fator = item.quantidade > 0 ? (100 / item.quantidade) : 0
+
+            const alimento = await prisma.alimento.create({
+                data: {
+                    nome: item.nome,
+                    calorias: Math.round((item.calorias || 0) * fator),
+                    proteinas: Number(((item.proteinas || 0) * fator).toFixed(1)),
+                    carboidratos: Number(((item.carboidratos || 0) * fator).toFixed(1)),
+                    gorduras: Number(((item.gorduras || 0) * fator).toFixed(1)),
+                }
+            })
+
+            processedItems.push({
+                ...item,
+                alimentoId: alimento.id
+            })
+        } else {
+            processedItems.push(item)
+        }
+    }
+
     // Fetch food data for calculations
-    const alimentoIds = itens.map((i) => i.alimentoId)
+    const alimentoIds = processedItems.map((i) => i.alimentoId)
     const alimentos = await prisma.alimento.findMany({
         where: { id: { in: alimentoIds } },
     })
@@ -74,7 +119,7 @@ export async function salvarRefeicao(
     let totalCarbos = 0
     let totalGorduras = 0
 
-    const alimentosRefeicao = itens.map((item) => {
+    const alimentosRefeicao = processedItems.map((item) => {
         const alimento = alimentoMap.get(item.alimentoId)
         if (!alimento) throw new Error(`Alimento ${item.alimentoId} não encontrado`)
 
