@@ -230,26 +230,19 @@ export async function getDashboardData(): Promise<DashboardData> {
         })
     }
 
-    const caloriasDiarias = calorias.map((c) => ({
-        usuarioId: c.usuarioId,
-        nome: c.usuario.nome,
-        cor: c.usuario.cor,
-        caloriasIngeridas: c.caloriasIngeridas,
-        metaCalorias: c.metaCalorias,
-    }))
+    // Build caloriasDiarias ensuring ALL users are present
+    const caloriasMap = new Map(calorias.map((c) => [c.usuarioId, c]))
 
-    // If no calories data, use user defaults
-    if (caloriasDiarias.length === 0) {
-        for (const u of usuarios) {
-            caloriasDiarias.push({
-                usuarioId: u.id,
-                nome: u.nome,
-                cor: u.cor,
-                caloriasIngeridas: 0,
-                metaCalorias: u.metaCalorias,
-            })
+    const caloriasDiarias = usuarios.map((u) => {
+        const record = caloriasMap.get(u.id)
+        return {
+            usuarioId: u.id,
+            nome: u.nome,
+            cor: u.cor,
+            caloriasIngeridas: record?.caloriasIngeridas ?? 0,
+            metaCalorias: record?.metaCalorias ?? u.metaCalorias,
         }
-    }
+    })
 
     const atividadesHoje = atividades.map((a) => {
         const user = usuarioMap.get(a.usuarioId)

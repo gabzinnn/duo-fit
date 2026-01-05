@@ -85,9 +85,12 @@ export async function getAlimentacaoData(usuarioId: number | null): Promise<Alim
     }
 
     // Use Brazil timezone for date calculations
-    const now = new Date()
-    const brazilDate = new Date(now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }))
-    const hoje = new Date(brazilDate.getFullYear(), brazilDate.getMonth(), brazilDate.getDate())
+    // Get today's date in YYYY-MM-DD format for Brazil timezone
+    const getTodayBrazil = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" })
+    const todayDateKey = getTodayBrazil() // "2026-01-05"
+
+    // Create Date object for today as UTC midnight (matches @db.Date storage)
+    const hoje = new Date(todayDateKey + "T00:00:00.000Z")
 
     // Fetch user data and rival
     const [usuario, usuarios] = await Promise.all([
@@ -98,14 +101,17 @@ export async function getAlimentacaoData(usuarioId: number | null): Promise<Alim
     const metaCalorias = usuario?.metaCalorias ?? 2000
     const rival = usuarios.find((u) => u.id !== usuarioId)
 
-    // Fetch today's data
-    const inicioHoje = new Date(hoje)
-    const fimHoje = new Date(hoje)
+    // For refeicao queries, we need local date boundaries
+    // Since refeicao.data is a full DateTime, we need to query within the day in Brazil time
+    const now = new Date()
+    const brazilNow = new Date(now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }))
+    const inicioHoje = new Date(brazilNow.getFullYear(), brazilNow.getMonth(), brazilNow.getDate())
+    const fimHoje = new Date(inicioHoje)
     fimHoje.setHours(23, 59, 59, 999)
 
     const [caloriasDiarias, refeicoes, rivalCalorias] = await Promise.all([
         prisma.caloriasDiarias.findFirst({
-            where: { usuarioId, data: inicioHoje },
+            where: { usuarioId, data: hoje },
         }),
         prisma.refeicao.findMany({
             where: {
@@ -121,7 +127,7 @@ export async function getAlimentacaoData(usuarioId: number | null): Promise<Alim
         }),
         rival
             ? prisma.caloriasDiarias.findFirst({
-                where: { usuarioId: rival.id, data: inicioHoje },
+                where: { usuarioId: rival.id, data: hoje },
             })
             : null,
     ])
@@ -133,6 +139,7 @@ export async function getAlimentacaoData(usuarioId: number | null): Promise<Alim
         horario: r.data.toLocaleTimeString("pt-BR", {
             hour: "2-digit",
             minute: "2-digit",
+            timeZone: "America/Sao_Paulo",
         }),
         totalCalorias: r.totalCalorias,
         alimentos: r.alimentos.map((ar) => ({
@@ -157,32 +164,49 @@ export async function getAlimentacaoData(usuarioId: number | null): Promise<Alim
         }
     })
 
-    // Weekly history
+    // Weekly history - 7 days centered on today (3 before, today, 3 after)
     const historicoSemanal: DiaHistorico[] = []
-    for (let i = 6; i >= 0; i--) {
-        const dia = new Date(hoje)
-        dia.setDate(hoje.getDate() - (3 - i)) // 3 days before to 3 days after
 
-        const isHoje = dia.getTime() === hoje.getTime()
-        const isFuturo = dia > hoje
+    // Helper to get day of week from Date in Brazil timezone
+    const getDiaSemana = (dateKey: string) => {
+        // Create date and get Brazil day of week
+        const d = new Date(dateKey + "T12:00:00.000Z") // Use noon to avoid timezone shifts
+        const brazilDateStr = d.toLocaleString("en-US", { timeZone: "America/Sao_Paulo", weekday: "short" })
+        const dayMap: { [key: string]: string } = {
+            "Sun": "Dom", "Mon": "Seg", "Tue": "Ter", "Wed": "Qua", "Thu": "Qui", "Fri": "Sex", "Sat": "Sáb"
+        }
+        return dayMap[brazilDateStr.substring(0, 3)] || "?"
+    }
+
+    for (let i = -3; i <= 3; i++) {
+        // Calculate date key
+        const targetDate = new Date(hoje)
+        targetDate.setUTCDate(hoje.getUTCDate() + i)
+        const dateKey = targetDate.toISOString().split("T")[0] // YYYY-MM-DD
+
+        const isHoje = dateKey === todayDateKey
+        const isFuturo = dateKey > todayDateKey
+
+        // Query using the date as UTC midnight
+        const queryDate = new Date(dateKey + "T00:00:00.000Z")
 
         const [userCal, rivalCal] = await Promise.all([
             prisma.caloriasDiarias.findFirst({
                 where: {
                     usuarioId,
-                    data: dia,
+                    data: queryDate,
                 },
             }),
             rival
                 ? prisma.caloriasDiarias.findFirst({
-                    where: { usuarioId: rival.id, data: dia },
+                    where: { usuarioId: rival.id, data: queryDate },
                 })
                 : null,
         ])
 
         historicoSemanal.push({
-            dia: dia.toLocaleDateString("pt-BR", { day: "2-digit" }),
-            diaSemana: DIAS_SEMANA[dia.getDay()],
+            dia: String(targetDate.getUTCDate()).padStart(2, "0"),
+            diaSemana: getDiaSemana(dateKey),
             usuario: userCal
                 ? Math.round((userCal.caloriasIngeridas / metaCalorias) * 100)
                 : 0,

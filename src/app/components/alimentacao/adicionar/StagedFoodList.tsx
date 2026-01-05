@@ -3,10 +3,11 @@ import { StagedFoodItem, type StagedItem } from "./StagedFoodItem"
 interface StagedFoodListProps {
   items: StagedItem[]
   onRemove: (id: string) => void
+  onUpdate: (id: string, updates: Partial<StagedItem>) => void
   onManualAdd: () => void
 }
 
-export function StagedFoodList({ items, onRemove, onManualAdd }: StagedFoodListProps) {
+export function StagedFoodList({ items, onRemove, onUpdate, onManualAdd }: StagedFoodListProps) {
   return (
     <div className="flex flex-col gap-3">
       <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider px-2">
@@ -19,11 +20,22 @@ export function StagedFoodList({ items, onRemove, onManualAdd }: StagedFoodListP
             restaurant
           </span>
           <p className="text-sm">Nenhum alimento adicionado ainda</p>
+          <p className="text-xs mt-1 text-slate-300">Busque um alimento ou tire uma foto</p>
         </div>
       ) : (
-        items.map((item) => (
-          <StagedFoodItem key={item.id} item={item} onRemove={onRemove} />
-        ))
+        <>
+          <p className="text-xs text-slate-400 px-2 -mt-1">
+            Clique em um item para editar quantidade ou valores nutricionais
+          </p>
+          {items.map((item) => (
+            <StagedFoodItem 
+              key={item.id} 
+              item={item} 
+              onRemove={onRemove}
+              onUpdate={onUpdate}
+            />
+          ))}
+        </>
       )}
 
       <button

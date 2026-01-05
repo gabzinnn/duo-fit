@@ -170,6 +170,17 @@ export async function salvarRefeicao(
     const brazilDate = new Date(now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }))
     const hoje = new Date(brazilDate.getFullYear(), brazilDate.getMonth(), brazilDate.getDate())
 
+    // Get user's calorie goal
+    const usuario = await prisma.usuario.findUnique({
+        where: { id: usuarioId },
+        select: { metaCalorias: true }
+    })
+
+    const metaCaloriasUsuario = usuario?.metaCalorias ?? 2000
+
+
+
+    // Now do the upsert
     await prisma.caloriasDiarias.upsert({
         where: {
             usuarioId_data: {
@@ -180,7 +191,7 @@ export async function salvarRefeicao(
         create: {
             usuarioId,
             data: hoje,
-            metaCalorias: 2000, // Will be overwritten with user's goal
+            metaCalorias: metaCaloriasUsuario,
             caloriasIngeridas: totalCalorias,
             proteinas: totalProteinas,
             carboidratos: totalCarbos,
@@ -193,6 +204,10 @@ export async function salvarRefeicao(
             gorduras: { increment: totalGorduras },
         },
     })
+
+    // Note: metaAtingida is NOT set here because we can only determine 
+    // if someone stayed UNDER their calorie goal at the END of the day.
+    // This is handled by a separate daily check or when viewing historical data.
 
     revalidatePath("/alimentacao")
 

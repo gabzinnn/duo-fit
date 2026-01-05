@@ -70,6 +70,12 @@ export function AddMealContent() {
     setStagedItems((prev) => prev.filter((item) => item.id !== id))
   }
 
+  const handleUpdateItem = (id: string, updates: Partial<StagedItem>) => {
+    setStagedItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, ...updates } : item))
+    )
+  }
+
   const handleFoodCreated = (alimento: {
     id: number
     nome: string
@@ -201,6 +207,7 @@ export function AddMealContent() {
               <StagedFoodList
                 items={stagedItems}
                 onRemove={handleRemoveItem}
+                onUpdate={handleUpdateItem}
                 onManualAdd={() => setShowCreateModal(true)}
               />
             </div>
