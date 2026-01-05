@@ -1,5 +1,7 @@
 "use server"
 
+import { revalidatePath } from "next/cache"
+import { unstable_noStore as noStore } from "next/cache"
 import prisma from "@/lib/prisma"
 import type { TipoExercicio } from "@/generated/prisma/client"
 
@@ -18,6 +20,8 @@ export interface ExercicioData {
 }
 
 export async function getExercicios(): Promise<ExercicioData[]> {
+    noStore() // Disable caching to always fetch fresh data
+
     const exercicios = await prisma.exercicio.findMany({
         include: {
             usuario: {
@@ -147,6 +151,9 @@ export async function createExercicio(data: {
             },
         })
     }
+
+    // Revalidate cache for exercises page
+    revalidatePath("/exercicios")
 
     return exercicio
 }
