@@ -44,7 +44,7 @@ export async function getCalendarData(
         },
     })
 
-    // Get calories for the month where goal was met
+    // Get calories for the month where goal was met and day is valid
     const caloriasMeta = await prisma.caloriasDiarias.findMany({
         where: {
             data: {
@@ -52,6 +52,7 @@ export async function getCalendarData(
                 lte: ultimoDia,
             },
             metaAtingida: true,
+            registroInvalido: false, // Exclude days marked as invalid
         },
         select: {
             usuarioId: true,

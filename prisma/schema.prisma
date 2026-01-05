@@ -193,6 +193,7 @@ model CaloriasDiarias {
   gorduras          Float    @default(0)
   metaAtingida      Boolean  @default(false)
   metadeAtingida    Boolean  @default(false) // 50% da meta = pontos parciais
+  registroInvalido  Boolean  @default(false) // Dia marcado como "não registrei direito"
   atualizadoEm      DateTime @updatedAt
 
   usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)

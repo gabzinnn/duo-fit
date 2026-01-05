@@ -15,16 +15,29 @@ export function AlimentacaoHeader({ dataAtual }: AlimentacaoHeaderProps) {
           </h2>
           <p className="text-slate-500 text-sm">{dataAtual}</p>
         </div>
-        <Link href="/alimentacao/adicionar">
-          <Button
-            size="md"
-            leftIcon={
-              <span className="material-symbols-outlined text-xl">add</span>
-            }
-          >
-            Adicionar Refeição
-          </Button>
-        </Link>
+        <div className="flex gap-3">
+          <Link href="/alimentacao/historico">
+            <Button
+              size="md"
+              variant="secondary"
+              leftIcon={
+                <span className="material-symbols-outlined text-xl">history</span>
+              }
+            >
+              Ver Histórico
+            </Button>
+          </Link>
+          <Link href="/alimentacao/adicionar">
+            <Button
+              size="md"
+              leftIcon={
+                <span className="material-symbols-outlined text-xl">add</span>
+              }
+            >
+              Adicionar Refeição
+            </Button>
+          </Link>
+        </div>
       </div>
     </header>
   )

@@ -102,12 +102,11 @@ export async function getAlimentacaoData(usuarioId: number | null): Promise<Alim
     const rival = usuarios.find((u) => u.id !== usuarioId)
 
     // For refeicao queries, we need local date boundaries
-    // Since refeicao.data is a full DateTime, we need to query within the day in Brazil time
-    const now = new Date()
-    const brazilNow = new Date(now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }))
-    const inicioHoje = new Date(brazilNow.getFullYear(), brazilNow.getMonth(), brazilNow.getDate())
-    const fimHoje = new Date(inicioHoje)
-    fimHoje.setHours(23, 59, 59, 999)
+    // Since refeicao.data is a full DateTime stored as UTC, and we created the record with new Date(),
+    // we need to query based on when the meal was actually added (in UTC)
+    // Using todayDateKey (Brazil date) to get the correct day boundaries
+    const inicioHoje = new Date(todayDateKey + "T00:00:00.000-03:00") // Start of day in Brazil time
+    const fimHoje = new Date(todayDateKey + "T23:59:59.999-03:00") // End of day in Brazil time
 
     const [caloriasDiarias, refeicoes, rivalCalorias] = await Promise.all([
         prisma.caloriasDiarias.findFirst({
@@ -207,10 +206,11 @@ export async function getAlimentacaoData(usuarioId: number | null): Promise<Alim
         historicoSemanal.push({
             dia: String(targetDate.getUTCDate()).padStart(2, "0"),
             diaSemana: getDiaSemana(dateKey),
-            usuario: userCal
+            // If day is marked as invalid, show 0%
+            usuario: userCal && !userCal.registroInvalido
                 ? Math.round((userCal.caloriasIngeridas / metaCalorias) * 100)
                 : 0,
-            rival: rivalCal
+            rival: rivalCal && !rivalCal.registroInvalido
                 ? Math.round(
                     (rivalCal.caloriasIngeridas / (rival?.metaCalorias ?? 2000)) * 100
                 )
@@ -218,6 +218,11 @@ export async function getAlimentacaoData(usuarioId: number | null): Promise<Alim
             isHoje,
             isFuturo,
         })
+
+        // Debug log
+        if (userCal) {
+            console.log(`[Historico] ${dateKey}: userCal.registroInvalido=${userCal.registroInvalido}, calorias=${userCal.caloriasIngeridas}`)
+        }
     }
 
     // Macros calculation - use user's configured goals
@@ -247,3 +252,187 @@ export async function getAlimentacaoData(usuarioId: number | null): Promise<Alim
     }
 }
 
+// =========================
+// HISTÓRICO DE REFEIÇÕES
+// =========================
+
+export interface AlimentoHistorico {
+    id: number
+    nome: string
+    quantidade: number
+    unidade: string
+    calorias: number
+    proteinas: number
+    carboidratos: number
+    gorduras: number
+}
+
+export interface RefeicaoHistorico {
+    id: number
+    tipo: TipoRefeicao
+    data: Date
+    totalCalorias: number
+    totalProteinas: number
+    totalCarbos: number
+    totalGorduras: number
+    quantidadeAlimentos: number
+    alimentos: AlimentoHistorico[]
+    usuarioId: number
+    nomeUsuario: string
+    corUsuario: string
+    avatarUsuario: string | null
+}
+
+export async function getHistoricoRefeicoes(): Promise<RefeicaoHistorico[]> {
+    const refeicoes = await prisma.refeicao.findMany({
+        include: {
+            usuario: {
+                select: {
+                    nome: true,
+                    cor: true,
+                    avatar: true,
+                },
+            },
+            alimentos: {
+                include: {
+                    alimento: {
+                        select: { nome: true }
+                    }
+                }
+            },
+        },
+        orderBy: { data: "desc" },
+    })
+
+    return refeicoes.map((r) => ({
+        id: r.id,
+        tipo: r.tipo,
+        data: r.data,
+        totalCalorias: r.totalCalorias,
+        totalProteinas: r.totalProteinas,
+        totalCarbos: r.totalCarbos,
+        totalGorduras: r.totalGorduras,
+        quantidadeAlimentos: r.alimentos.length,
+        alimentos: r.alimentos.map((a) => ({
+            id: a.id,
+            nome: a.alimento.nome,
+            quantidade: a.quantidade,
+            unidade: a.unidade,
+            calorias: a.calorias,
+            proteinas: a.proteinas,
+            carboidratos: a.carboidratos,
+            gorduras: a.gorduras,
+        })),
+        usuarioId: r.usuarioId,
+        nomeUsuario: r.usuario.nome,
+        corUsuario: r.usuario.cor,
+        avatarUsuario: r.usuario.avatar,
+    }))
+}
+
+// =========================
+// MARCAR DIA INVÁLIDO
+// =========================
+
+import { revalidatePath } from "next/cache"
+
+const PONTOS_META_ALIMENTACAO = 2 // Pontos por atingir meta de alimentação
+
+export async function marcarDiaInvalido(
+    usuarioId: number,
+    dateKey: string, // Format: DD/MM/YYYY
+    invalido: boolean
+) {
+    // Parse date from DD/MM/YYYY format
+    const [day, month, year] = dateKey.split("/").map(Number)
+    const data = new Date(Date.UTC(year, month - 1, day))
+
+    // Find or create CaloriasDiarias record
+    const usuario = await prisma.usuario.findUnique({
+        where: { id: usuarioId },
+        select: { metaCalorias: true }
+    })
+
+    if (!usuario) throw new Error("Usuário não encontrado")
+
+    // Upsert CaloriasDiarias
+    const caloriasDiarias = await prisma.caloriasDiarias.upsert({
+        where: {
+            usuarioId_data: { usuarioId, data }
+        },
+        create: {
+            usuarioId,
+            data,
+            metaCalorias: usuario.metaCalorias,
+            registroInvalido: invalido,
+        },
+        update: {
+            registroInvalido: invalido,
+        }
+    })
+
+    // Update points
+    const pontuacao = await prisma.pontuacaoDiaria.findUnique({
+        where: {
+            usuarioId_data: { usuarioId, data }
+        }
+    })
+
+    if (invalido) {
+        // Remove calorie points if they exist
+        if (pontuacao && pontuacao.pontosCalorias > 0) {
+            await prisma.pontuacaoDiaria.update({
+                where: { usuarioId_data: { usuarioId, data } },
+                data: {
+                    pontosCalorias: 0,
+                    pontosTotais: { decrement: pontuacao.pontosCalorias }
+                }
+            })
+        }
+    } else {
+        // Restore points if meta was achieved and day is valid
+        const metaAtingida = caloriasDiarias.caloriasIngeridas <= caloriasDiarias.metaCalorias &&
+            caloriasDiarias.caloriasIngeridas > 0
+
+        if (metaAtingida) {
+            if (pontuacao) {
+                if (pontuacao.pontosCalorias === 0) {
+                    await prisma.pontuacaoDiaria.update({
+                        where: { usuarioId_data: { usuarioId, data } },
+                        data: {
+                            pontosCalorias: PONTOS_META_ALIMENTACAO,
+                            pontosTotais: { increment: PONTOS_META_ALIMENTACAO }
+                        }
+                    })
+                }
+            } else {
+                await prisma.pontuacaoDiaria.create({
+                    data: {
+                        usuarioId,
+                        data,
+                        pontosCalorias: PONTOS_META_ALIMENTACAO,
+                        pontosTotais: PONTOS_META_ALIMENTACAO,
+                    }
+                })
+            }
+        }
+    }
+
+    revalidatePath("/alimentacao/historico")
+    revalidatePath("/alimentacao")
+
+    return { success: true, registroInvalido: invalido }
+}
+
+// Get invalid days for a user
+export async function getDiasInvalidos(usuarioId: number): Promise<string[]> {
+    const dias = await prisma.caloriasDiarias.findMany({
+        where: {
+            usuarioId,
+            registroInvalido: true
+        },
+        select: { data: true }
+    })
+
+    return dias.map(d => d.data.toLocaleDateString("pt-BR", { timeZone: "UTC" }))
+}

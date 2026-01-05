@@ -69,12 +69,12 @@ export async function fixHistoricalCaloriasMeta() {
                     create: {
                         usuarioId: record.usuarioId,
                         data: record.data,
-                        pontosCalorias: 1,
-                        pontosTotais: 1,
+                        pontosCalorias: 2,
+                        pontosTotais: 2,
                     },
                     update: {
-                        pontosCalorias: 1,
-                        pontosTotais: { increment: 1 },
+                        pontosCalorias: 2,
+                        pontosTotais: { increment: 2 },
                     }
                 })
                 pointsAwarded++

@@ -146,13 +146,14 @@ export function AddMealContent() {
                 payload.carboidratos = item.carboidratos
                 payload.gorduras = item.gorduras
             } else {
-                // Item values are BASE (per 100g)
-                // We must convert to totals
-                const fator = item.quantidade / 100
-                payload.calorias = item.calorias * fator
-                payload.proteinas = item.proteinas * fator
-                payload.carboidratos = item.carboidratos * fator
-                payload.gorduras = item.gorduras * fator
+                // Item values are BASE (per 100g or per unit)
+                // We must convert to totals based on unit type
+                const isWeightUnit = item.unidade === "g" || item.unidade === "ml"
+                const multiplier = isWeightUnit ? item.quantidade / 100 : item.quantidade
+                payload.calorias = item.calorias * multiplier
+                payload.proteinas = item.proteinas * multiplier
+                payload.carboidratos = item.carboidratos * multiplier
+                payload.gorduras = item.gorduras * multiplier
             }
           }
 

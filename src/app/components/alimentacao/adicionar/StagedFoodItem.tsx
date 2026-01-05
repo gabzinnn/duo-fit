@@ -32,11 +32,6 @@ export function StagedFoodItem({ item, onRemove, onUpdate }: StagedFoodItemProps
   const [baseCarboidratos, setBaseCarboidratos] = useState(item.carboidratos)
   const [baseGorduras, setBaseGorduras] = useState(item.gorduras)
 
-  // Calculate displayed macros for the list view
-  const fator = item.isPreCalculated ? 1 : item.quantidade / 100
-  const displayCalorias = Math.round(item.calorias * fator)
-  const displayProteinas = Math.round(item.proteinas * fator)
-
   // Check if unit uses weight-based calculation (g, ml) or unit-based (1 unit = 100g worth)
   const isWeightUnit = (unit: string) => unit === "g" || unit === "ml"
   
@@ -47,6 +42,11 @@ export function StagedFoodItem({ item, onRemove, onUpdate }: StagedFoodItemProps
     }
     return qty // 1 porção = base values (100g worth)
   }
+
+  // Calculate displayed macros for the list view (must use same logic as edit preview)
+  const displayMultiplier = item.isPreCalculated ? 1 : getMultiplier(item.quantidade, item.unidade)
+  const displayCalorias = Math.round(item.calorias * displayMultiplier)
+  const displayProteinas = Math.round(item.proteinas * displayMultiplier)
 
   // Calculate LIVE preview values when editing (uses editable base values)
   const editMultiplier = getMultiplier(editQuantidade, editUnidade)

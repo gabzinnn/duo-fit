@@ -17,15 +17,26 @@ export function MealSummaryCard({
   onCancel,
   saving,
 }: MealSummaryCardProps) {
-  // Calculate totals from items (respect isPreCalculated flag)
+  // Helper to check if unit uses weight-based calculation
+  const isWeightUnit = (unit: string) => unit === "g" || unit === "ml"
+  
+  // Calculate multiplier based on unit type (same logic as StagedFoodItem)
+  const getMultiplier = (qty: number, unit: string) => {
+    if (isWeightUnit(unit)) {
+      return qty / 100 // 100g = base values
+    }
+    return qty // 1 porção = base values (100g worth)
+  }
+
+  // Calculate totals from items (respect isPreCalculated flag and unit type)
   const totals = items.reduce(
     (acc, item) => {
-      const fator = item.isPreCalculated ? 1 : item.quantidade / 100
+      const multiplier = item.isPreCalculated ? 1 : getMultiplier(item.quantidade, item.unidade)
       return {
-        calorias: acc.calorias + item.calorias * fator,
-        proteinas: acc.proteinas + item.proteinas * fator,
-        carboidratos: acc.carboidratos + item.carboidratos * fator,
-        gorduras: acc.gorduras + item.gorduras * fator,
+        calorias: acc.calorias + item.calorias * multiplier,
+        proteinas: acc.proteinas + item.proteinas * multiplier,
+        carboidratos: acc.carboidratos + item.carboidratos * multiplier,
+        gorduras: acc.gorduras + item.gorduras * multiplier,
       }
     },
     { calorias: 0, proteinas: 0, carboidratos: 0, gorduras: 0 }

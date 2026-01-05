@@ -113,6 +113,9 @@ export async function salvarRefeicao(
 
     const alimentoMap = new Map(alimentos.map((a) => [a.id, a]))
 
+    // Helper to check if unit uses weight-based calculation
+    const isWeightUnit = (unit: string) => unit === "g" || unit === "ml"
+
     // Calculate totals
     let totalCalorias = 0
     let totalProteinas = 0
@@ -123,12 +126,14 @@ export async function salvarRefeicao(
         const alimento = alimentoMap.get(item.alimentoId)
         if (!alimento) throw new Error(`Alimento ${item.alimentoId} não encontrado`)
 
-        // Calculate based on quantity (assuming base is 100g)
-        const fator = item.quantidade / 100
-        const calorias = alimento.calorias * fator
-        const proteinas = alimento.proteinas * fator
-        const carboidratos = alimento.carboidratos * fator
-        const gorduras = alimento.gorduras * fator
+        // Calculate based on quantity and unit type
+        // For g/ml: 100g = base values, so multiply by (qty / 100)
+        // For other units (porção, un, etc): 1 unit = base values (100g worth), so multiply by qty
+        const multiplier = isWeightUnit(item.unidade) ? item.quantidade / 100 : item.quantidade
+        const calorias = alimento.calorias * multiplier
+        const proteinas = alimento.proteinas * multiplier
+        const carboidratos = alimento.carboidratos * multiplier
+        const gorduras = alimento.gorduras * multiplier
 
         totalCalorias += calorias
         totalProteinas += proteinas
