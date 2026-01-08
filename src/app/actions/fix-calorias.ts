@@ -8,10 +8,9 @@ import prisma from "@/lib/prisma"
  * Also awards points for those who met the goal but didn't get credited.
  */
 export async function fixHistoricalCaloriasMeta() {
-    // Get today's date in Brazil timezone (we should only fix PAST days)
-    const now = new Date()
-    const brazilDate = new Date(now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }))
-    const hoje = new Date(brazilDate.getFullYear(), brazilDate.getMonth(), brazilDate.getDate())
+    // Get today's date in Brazil timezone, then convert to UTC midnight for @db.Date
+    const todayBrazil = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" })
+    const hoje = new Date(todayBrazil + "T00:00:00.000Z") // UTC midnight for @db.Date
 
     // Find all records from PAST days where metaAtingida is false
     const recordsToFix = await prisma.caloriasDiarias.findMany({

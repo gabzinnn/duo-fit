@@ -1,6 +1,7 @@
 import { AppLayout } from "@/app/components/layout"
 import { getHistoricoRefeicoes, getDiasInvalidos } from "@/app/actions/alimentacao"
 import { HistoricoRefeicaoContent } from "@/app/components/alimentacao"
+import { unstable_noStore as noStore } from "next/cache"
 
 export default async function HistoricoRefeicaoPage() {
   const [refeicoes, diasInvalidos] = await Promise.all([
@@ -19,14 +20,16 @@ export default async function HistoricoRefeicaoPage() {
 }
 
 async function getAllDiasInvalidos(): Promise<string[]> {
+  noStore() // Disable caching to always fetch fresh data
+
   // Import prisma directly since this is a server component
   const prisma = (await import("@/lib/prisma")).default
-  
+
   const dias = await prisma.caloriasDiarias.findMany({
     where: { registroInvalido: true },
-    select: { 
+    select: {
       data: true,
-      usuarioId: true 
+      usuarioId: true
     }
   })
 

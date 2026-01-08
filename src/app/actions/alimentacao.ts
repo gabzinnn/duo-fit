@@ -1,5 +1,6 @@
 "use server"
 
+import { unstable_noStore as noStore } from "next/cache"
 import prisma from "@/lib/prisma"
 import { TipoRefeicao } from "@/generated/prisma/client"
 
@@ -59,6 +60,7 @@ const DIAS_SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"]
 // =========================
 
 export async function getAlimentacaoData(usuarioId: number | null): Promise<AlimentacaoData> {
+    noStore() // Disable caching to always fetch fresh data
 
     if (!usuarioId) {
         // Return default state with all 4 meal types
@@ -284,6 +286,8 @@ export interface RefeicaoHistorico {
 }
 
 export async function getHistoricoRefeicoes(): Promise<RefeicaoHistorico[]> {
+    noStore() // Disable caching to always fetch fresh data
+
     const refeicoes = await prisma.refeicao.findMany({
         include: {
             usuario: {
@@ -426,6 +430,8 @@ export async function marcarDiaInvalido(
 
 // Get invalid days for a user
 export async function getDiasInvalidos(usuarioId: number): Promise<string[]> {
+    noStore() // Disable caching to always fetch fresh data
+
     const dias = await prisma.caloriasDiarias.findMany({
         where: {
             usuarioId,

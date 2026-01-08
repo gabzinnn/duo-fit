@@ -170,10 +170,9 @@ export async function salvarRefeicao(
         },
     })
 
-    // Update daily calories (use Brazil timezone)
-    const now = new Date()
-    const brazilDate = new Date(now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }))
-    const hoje = new Date(brazilDate.getFullYear(), brazilDate.getMonth(), brazilDate.getDate())
+    // Update daily calories (use Brazil timezone to get today's date key, then create UTC midnight)
+    const todayBrazil = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" })
+    const hoje = new Date(todayBrazil + "T00:00:00.000Z") // UTC midnight for @db.Date
 
     // Get user's calorie goal
     const usuario = await prisma.usuario.findUnique({
@@ -183,10 +182,8 @@ export async function salvarRefeicao(
 
     const metaCaloriasUsuario = usuario?.metaCalorias ?? 2000
 
-
-
-    // Now do the upsert
-    await prisma.caloriasDiarias.upsert({
+    // Now do the upsert for daily calories
+    const caloriasDiarias = await prisma.caloriasDiarias.upsert({
         where: {
             usuarioId_data: {
                 usuarioId,
@@ -210,11 +207,69 @@ export async function salvarRefeicao(
         },
     })
 
-    // Note: metaAtingida is NOT set here because we can only determine 
-    // if someone stayed UNDER their calorie goal at the END of the day.
-    // This is handled by a separate daily check or when viewing historical data.
+    // Check if calorie goal is met (calories > 0 AND <= meta)
+    // Get the updated record to check current total
+    const updatedCalorias = await prisma.caloriasDiarias.findUnique({
+        where: { id: caloriasDiarias.id }
+    })
+
+    if (updatedCalorias) {
+        const caloriasAtual = updatedCalorias.caloriasIngeridas
+        const metaAtual = updatedCalorias.metaCalorias
+        const metaAtingida = caloriasAtual > 0 && caloriasAtual <= metaAtual
+
+        // Update metaAtingida flag
+        await prisma.caloriasDiarias.update({
+            where: { id: caloriasDiarias.id },
+            data: { metaAtingida }
+        })
+
+        // Handle points for calorie goal
+        const PONTOS_META_CALORIAS = 2
+        const pontuacaoExistente = await prisma.pontuacaoDiaria.findUnique({
+            where: {
+                usuarioId_data: { usuarioId, data: hoje }
+            }
+        })
+
+        if (metaAtingida) {
+            // Award points if not already awarded
+            if (!pontuacaoExistente || pontuacaoExistente.pontosCalorias === 0) {
+                await prisma.pontuacaoDiaria.upsert({
+                    where: {
+                        usuarioId_data: { usuarioId, data: hoje }
+                    },
+                    create: {
+                        usuarioId,
+                        data: hoje,
+                        pontosCalorias: PONTOS_META_CALORIAS,
+                        pontosTotais: PONTOS_META_CALORIAS,
+                    },
+                    update: {
+                        pontosCalorias: PONTOS_META_CALORIAS,
+                        pontosTotais: { increment: PONTOS_META_CALORIAS },
+                    }
+                })
+            }
+        } else {
+            // Remove calorie points if they were awarded but goal is no longer met
+            if (pontuacaoExistente && pontuacaoExistente.pontosCalorias > 0) {
+                await prisma.pontuacaoDiaria.update({
+                    where: {
+                        usuarioId_data: { usuarioId, data: hoje }
+                    },
+                    data: {
+                        pontosCalorias: 0,
+                        pontosTotais: { decrement: pontuacaoExistente.pontosCalorias }
+                    }
+                })
+            }
+        }
+    }
 
     revalidatePath("/alimentacao")
+    revalidatePath("/home")
 
     return refeicao
 }
+

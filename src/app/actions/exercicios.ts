@@ -79,10 +79,9 @@ export async function createExercicio(data: {
         },
     })
 
-    // Update daily points (use Brazil timezone)
-    const now = new Date()
-    const brazilDate = new Date(now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }))
-    const hoje = new Date(brazilDate.getFullYear(), brazilDate.getMonth(), brazilDate.getDate())
+    // Update daily points (use Brazil timezone to get today's date key, then create UTC midnight)
+    const todayBrazil = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" })
+    const hoje = new Date(todayBrazil + "T00:00:00.000Z") // UTC midnight for @db.Date
 
     await prisma.pontuacaoDiaria.upsert({
         where: {

@@ -1,5 +1,6 @@
 "use server"
 
+import { unstable_noStore as noStore } from "next/cache"
 import prisma from "@/lib/prisma"
 
 export interface DashboardData {
@@ -39,10 +40,11 @@ export interface DashboardData {
 }
 
 export async function getDashboardData(): Promise<DashboardData> {
-    // Create date in Brazil timezone (UTC-3)
-    const now = new Date()
-    const brazilDate = new Date(now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }))
-    const hoje = new Date(brazilDate.getFullYear(), brazilDate.getMonth(), brazilDate.getDate())
+    noStore() // Disable caching to always fetch fresh data
+
+    // Create date in Brazil timezone, then convert to UTC midnight for @db.Date
+    const todayBrazilDate = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" })
+    const hoje = new Date(todayBrazilDate + "T00:00:00.000Z") // UTC midnight for @db.Date
 
     // Get all users with their stats
     const usuarios = await prisma.usuario.findMany({
