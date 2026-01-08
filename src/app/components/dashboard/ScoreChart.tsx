@@ -23,8 +23,8 @@ export function ScoreChart({
   usuario1Cor,
   usuario2Cor,
 }: ScoreChartProps) {
-  const cor1 = usuario1Cor === "AMARELO" ? "#f6e2b9" : "#9333ea"
-  const cor2 = usuario2Cor === "AMARELO" ? "#f6e2b9" : "#9333ea"
+  const cor1 = usuario1Cor === "AMARELO" ? "#ffb900" : "#9333ea"
+  const cor2 = usuario2Cor === "AMARELO" ? "#ffb900" : "#9333ea"
   const options: ApexCharts.ApexOptions = {
     chart: {
       type: "line",

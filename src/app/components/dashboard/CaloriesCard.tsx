@@ -21,7 +21,7 @@ export function CaloriesCard({ usuarios }: CaloriesCardProps) {
             100
           )
           const isAmarelo = u.cor === "AMARELO"
-          const barColor = isAmarelo ? "#d97706" : "#9333ea"
+          const barColor = isAmarelo ? "#ffb900" : "#9333ea"
 
           return (
             <div key={u.usuarioId}>

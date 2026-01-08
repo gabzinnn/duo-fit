@@ -25,7 +25,7 @@ export function UserScoreCard({
   const colorClasses = isAmarelo
     ? "bg-amber-100 text-amber-600 border-amber-200"
     : "bg-purple-100 text-purple-600 border-purple-200"
-  const accentColor = isAmarelo ? "#d97706" : "#9333ea"
+  const accentColor = isAmarelo ? "#ffb900" : "#9333ea"
 
   return (
     <div className="bg-white rounded-xl p-6 border border-slate-100 shadow-sm relative overflow-hidden group">

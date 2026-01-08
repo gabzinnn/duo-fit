@@ -51,7 +51,11 @@ export async function getDashboardData(): Promise<DashboardData> {
         include: {
             sequencias: true,
             _count: {
-                select: { exercicios: true },
+                select: { exercicios: {
+                    where: {
+                        tipo: "ACADEMIA"
+                    }
+                } },
             },
         },
         orderBy: { id: "asc" },
