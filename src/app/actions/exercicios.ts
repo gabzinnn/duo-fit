@@ -68,15 +68,22 @@ export async function createExercicio(data: {
         pontos = 1
     }
 
-    // Determine the date for the exercise
+    // Determine the date for the exercise - always use Brazil timezone
     const todayBrazil = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" })
     const targetDateKey = data.dateKey || todayBrazil
 
-    // For the exercise record, create a datetime for the target date at current time
-    const now = new Date()
-    const exerciseDateTime = data.dateKey
-        ? new Date(`${targetDateKey}T${now.toTimeString().split(' ')[0]}`)
-        : now
+    // Get current time in Brazil timezone
+    const nowBrazilTime = new Date().toLocaleTimeString("en-GB", {
+        timeZone: "America/Sao_Paulo",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false
+    })
+
+    // Create the exercise datetime as Brazil timezone (UTC-3)
+    // Format: YYYY-MM-DDTHH:mm:ss-03:00
+    const exerciseDateTime = new Date(`${targetDateKey}T${nowBrazilTime}-03:00`)
 
     const exercicio = await prisma.exercicio.create({
         data: {

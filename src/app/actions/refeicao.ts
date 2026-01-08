@@ -153,15 +153,22 @@ export async function salvarRefeicao(
     })
 
     // Create meal with food items
-    // Determine the date for the meal
+    // Determine the date for the meal - always use Brazil timezone
     const todayBrazil = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" })
     const targetDateKey = dateKey || todayBrazil
 
-    // For the meal record, create a datetime in Brazil timezone for the target date at current time
-    const now = new Date()
-    const mealDateTime = dateKey
-        ? new Date(`${targetDateKey}T${now.toTimeString().split(' ')[0]}`)
-        : now
+    // Get current time in Brazil timezone
+    const nowBrazilTime = new Date().toLocaleTimeString("en-GB", {
+        timeZone: "America/Sao_Paulo",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false
+    })
+
+    // Create the meal datetime as Brazil timezone (UTC-3)
+    // Format: YYYY-MM-DDTHH:mm:ss-03:00
+    const mealDateTime = new Date(`${targetDateKey}T${nowBrazilTime}-03:00`)
 
     const refeicao = await prisma.refeicao.create({
         data: {
