@@ -19,6 +19,11 @@ const EXERCISE_TYPES: ExerciseType[] = [
   { tipo: "OUTRO", label: "Outro", icon: "sports" },
 ]
 
+// Helper to get today's date in Brazil timezone as YYYY-MM-DD
+function getTodayBrazil(): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" })
+}
+
 interface AddExercicioFormProps {
   sequenciaAtual: number
 }
@@ -32,7 +37,11 @@ export function AddExercicioForm({ sequenciaAtual }: AddExercicioFormProps) {
   const [nome, setNome] = useState("")
   const [descricao, setDescricao] = useState("")
   const [duracao, setDuracao] = useState(30)
+  const [dataExercicio, setDataExercicio] = useState(getTodayBrazil())
   const [error, setError] = useState("")
+
+  const isToday = dataExercicio === getTodayBrazil()
+  const isFuture = dataExercicio > getTodayBrazil()
 
   // Calculate estimated points
   const calcularPontos = () => {
@@ -68,6 +77,7 @@ export function AddExercicioForm({ sequenciaAtual }: AddExercicioFormProps) {
           nome: nome.trim(),
           descricao: descricao.trim() || undefined,
           duracao,
+          dateKey: dataExercicio, // Pass the selected date
         })
       } catch {
         setError("Erro ao salvar exercício")
@@ -207,6 +217,37 @@ export function AddExercicioForm({ sequenciaAtual }: AddExercicioFormProps) {
                   <span className="material-symbols-outlined">description</span>
                 }
               />
+            </div>
+
+            {/* Data do exercício */}
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700 ml-1">
+                Data do exercício
+              </label>
+              <div className="relative">
+                <input
+                  type="date"
+                  value={dataExercicio}
+                  onChange={(e) => setDataExercicio(e.target.value)}
+                  max={getTodayBrazil()}
+                  className="w-full px-4 py-3 pl-12 rounded-xl border border-slate-200 bg-white text-slate-900 font-medium focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-shadow"
+                />
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-slate-400">
+                  calendar_today
+                </span>
+              </div>
+              {!isToday && !isFuture && (
+                <p className="text-xs text-blue-600 ml-1 flex items-center gap-1">
+                  <span className="material-symbols-outlined text-sm">info</span>
+                  Registro retroativo - pontos serão adicionados a este dia
+                </p>
+              )}
+              {isFuture && (
+                <p className="text-xs text-amber-600 ml-1 flex items-center gap-1">
+                  <span className="material-symbols-outlined text-sm">warning</span>
+                  Não é possível registrar exercícios futuros
+                </p>
+              )}
             </div>
           </div>
         </div>

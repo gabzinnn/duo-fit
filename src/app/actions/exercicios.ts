@@ -56,6 +56,7 @@ export async function createExercicio(data: {
     nome: string
     descricao?: string
     duracao: number
+    dateKey?: string // Optional: YYYY-MM-DD format, defaults to today
 }) {
     // Calculate points based on type
     let pontos = 0
@@ -67,6 +68,16 @@ export async function createExercicio(data: {
         pontos = 1
     }
 
+    // Determine the date for the exercise
+    const todayBrazil = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" })
+    const targetDateKey = data.dateKey || todayBrazil
+
+    // For the exercise record, create a datetime for the target date at current time
+    const now = new Date()
+    const exerciseDateTime = data.dateKey
+        ? new Date(`${targetDateKey}T${now.toTimeString().split(' ')[0]}`)
+        : now
+
     const exercicio = await prisma.exercicio.create({
         data: {
             usuarioId: data.usuarioId,
@@ -75,13 +86,12 @@ export async function createExercicio(data: {
             descricao: data.descricao,
             duracao: data.duracao,
             pontos,
-            data: new Date(),
+            data: exerciseDateTime,
         },
     })
 
-    // Update daily points (use Brazil timezone to get today's date key, then create UTC midnight)
-    const todayBrazil = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" })
-    const hoje = new Date(todayBrazil + "T00:00:00.000Z") // UTC midnight for @db.Date
+    // Update daily points using the target date (UTC midnight for @db.Date)
+    const hoje = new Date(targetDateKey + "T00:00:00.000Z") // UTC midnight for @db.Date
 
     await prisma.pontuacaoDiaria.upsert({
         where: {

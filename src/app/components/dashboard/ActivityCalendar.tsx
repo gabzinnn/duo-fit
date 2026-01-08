@@ -81,9 +81,10 @@ export function ActivityCalendar({
     }
 
     const usuarios = getDayColors(dia)
-    const isToday =
-      new Date().toISOString().split("T")[0] ===
-      `${ano}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`
+    // Use Brazil timezone to check if this day is today
+    const todayBrazil = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" })
+    const dateStr = `${ano}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`
+    const isToday = todayBrazil === dateStr
 
     // Determine background style
     let bgStyle: React.CSSProperties = {}

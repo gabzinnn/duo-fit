@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { useAuth } from "@/context/AuthContext"
+import { useDate } from "@/context/DateContext"
 import { TipoRefeicao } from "@/generated/prisma/client"
 import type { AlimentoNormalizado } from "@/utils/normalizar-alimento"
 import { salvarRefeicao } from "@/app/actions/refeicao"
@@ -22,6 +23,7 @@ export function AddMealContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { usuario } = useAuth()
+  const { selectedDateKey, formatSelectedDate, isToday, isFuture } = useDate()
 
   // Get meal type from URL or default to lunch
   const tipoParam = searchParams.get("tipo") as TipoRefeicao | null
@@ -35,17 +37,17 @@ export function AddMealContent() {
   const [metaCalorias, setMetaCalorias] = useState(2000)
   const [caloriasHoje, setCaloriasHoje] = useState(0)
 
-  // Fetch user's daily data
+  // Fetch user's daily data for the selected date
   useEffect(() => {
     async function fetchData() {
       if (usuario?.id) {
-        const data = await getAlimentacaoData(usuario.id)
+        const data = await getAlimentacaoData(usuario.id, selectedDateKey)
         setMetaCalorias(data.metaCalorias)
         setCaloriasHoje(data.caloriasIngeridas)
       }
     }
     fetchData()
-  }, [usuario?.id])
+  }, [usuario?.id, selectedDateKey])
 
   const handleAddFood = (
     alimento: AlimentoNormalizado,
@@ -126,7 +128,7 @@ export function AddMealContent() {
         stagedItems.map((item) => {
           const isTempItem = item.alimentoId <= 0
           const isPreCalculated = item.isPreCalculated // Values are already Total for the quantity
-          
+
           const payload: any = {
             alimentoId: item.alimentoId,
             quantidade: item.quantidade,
@@ -135,30 +137,31 @@ export function AddMealContent() {
 
           if (isTempItem) {
             payload.nome = item.nome
-            
+
             // Server expects TOTAL values for the quantity provided
             // It will then normalize to 100g base: (Total / Qty) * 100
-            
+
             if (isPreCalculated) {
-                // Item values are ALREADY totals
-                payload.calorias = item.calorias
-                payload.proteinas = item.proteinas
-                payload.carboidratos = item.carboidratos
-                payload.gorduras = item.gorduras
+              // Item values are ALREADY totals
+              payload.calorias = item.calorias
+              payload.proteinas = item.proteinas
+              payload.carboidratos = item.carboidratos
+              payload.gorduras = item.gorduras
             } else {
-                // Item values are BASE (per 100g or per unit)
-                // We must convert to totals based on unit type
-                const isWeightUnit = item.unidade === "g" || item.unidade === "ml"
-                const multiplier = isWeightUnit ? item.quantidade / 100 : item.quantidade
-                payload.calorias = item.calorias * multiplier
-                payload.proteinas = item.proteinas * multiplier
-                payload.carboidratos = item.carboidratos * multiplier
-                payload.gorduras = item.gorduras * multiplier
+              // Item values are BASE (per 100g or per unit)
+              // We must convert to totals based on unit type
+              const isWeightUnit = item.unidade === "g" || item.unidade === "ml"
+              const multiplier = isWeightUnit ? item.quantidade / 100 : item.quantidade
+              payload.calorias = item.calorias * multiplier
+              payload.proteinas = item.proteinas * multiplier
+              payload.carboidratos = item.carboidratos * multiplier
+              payload.gorduras = item.gorduras * multiplier
             }
           }
 
           return payload
-        })
+        }),
+        selectedDateKey // Pass the selected date to save meal on that day
       )
     } catch (error) {
       console.error("Erro ao salvar refeição:", error)
@@ -187,9 +190,21 @@ export function AddMealContent() {
           <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900">
             Adicionar Refeição
           </h1>
-          <p className="text-slate-500 text-base mt-1">
-            Registre seus alimentos para atualizar seu progresso diário.
-          </p>
+          <div className="flex items-center gap-2 mt-1">
+            <p className="text-slate-500 text-base">
+              {formatSelectedDate()}
+            </p>
+            {isFuture && (
+              <span className="px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 rounded-full">
+                Futuro
+              </span>
+            )}
+            {!isToday && !isFuture && (
+              <span className="px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 rounded-full">
+                Retroativo
+              </span>
+            )}
+          </div>
         </div>
       </header>
 

@@ -59,7 +59,7 @@ const DIAS_SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"]
 // MAIN ACTION
 // =========================
 
-export async function getAlimentacaoData(usuarioId: number | null): Promise<AlimentacaoData> {
+export async function getAlimentacaoData(usuarioId: number | null, dateKey?: string): Promise<AlimentacaoData> {
     noStore() // Disable caching to always fetch fresh data
 
     if (!usuarioId) {
@@ -87,11 +87,11 @@ export async function getAlimentacaoData(usuarioId: number | null): Promise<Alim
     }
 
     // Use Brazil timezone for date calculations
-    // Get today's date in YYYY-MM-DD format for Brazil timezone
+    // Get the date to query - use provided dateKey or default to today
     const getTodayBrazil = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" })
-    const todayDateKey = getTodayBrazil() // "2026-01-05"
+    const todayDateKey = dateKey || getTodayBrazil() // "2026-01-05"
 
-    // Create Date object for today as UTC midnight (matches @db.Date storage)
+    // Create Date object for the target day as UTC midnight (matches @db.Date storage)
     const hoje = new Date(todayDateKey + "T00:00:00.000Z")
 
     // Fetch user data and rival

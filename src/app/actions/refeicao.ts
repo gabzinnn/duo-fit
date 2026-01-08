@@ -60,7 +60,8 @@ export async function criarAlimento(data: NovoAlimentoInput) {
 export async function salvarRefeicao(
     usuarioId: number,
     tipo: TipoRefeicao,
-    itens: ItemRefeicaoInput[]
+    itens: ItemRefeicaoInput[],
+    dateKey?: string // Optional: YYYY-MM-DD format, defaults to today
 ) {
     if (itens.length === 0) {
         throw new Error("Adicione pelo menos um alimento")
@@ -152,11 +153,21 @@ export async function salvarRefeicao(
     })
 
     // Create meal with food items
+    // Determine the date for the meal
+    const todayBrazil = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" })
+    const targetDateKey = dateKey || todayBrazil
+
+    // For the meal record, create a datetime in Brazil timezone for the target date at current time
+    const now = new Date()
+    const mealDateTime = dateKey
+        ? new Date(`${targetDateKey}T${now.toTimeString().split(' ')[0]}`)
+        : now
+
     const refeicao = await prisma.refeicao.create({
         data: {
             usuarioId,
             tipo,
-            data: new Date(),
+            data: mealDateTime,
             totalCalorias,
             totalProteinas,
             totalCarbos,
@@ -170,9 +181,8 @@ export async function salvarRefeicao(
         },
     })
 
-    // Update daily calories (use Brazil timezone to get today's date key, then create UTC midnight)
-    const todayBrazil = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" })
-    const hoje = new Date(todayBrazil + "T00:00:00.000Z") // UTC midnight for @db.Date
+    // Update daily calories using the target date (UTC midnight for @db.Date)
+    const hoje = new Date(targetDateKey + "T00:00:00.000Z") // UTC midnight for @db.Date
 
     // Get user's calorie goal
     const usuario = await prisma.usuario.findUnique({

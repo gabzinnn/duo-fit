@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { Lexend, Noto_Sans } from "next/font/google"
 import "./globals.css"
 import { AuthProvider } from "@/context/AuthContext"
+import { DateProvider } from "@/context/DateContext"
 
 const lexend = Lexend({
   variable: "--font-display",
@@ -35,9 +36,12 @@ export default function RootLayout({
       </head>
       <body className={`${lexend.variable} ${notoSans.variable} antialiased`}>
         <AuthProvider>
-          {children}
+          <DateProvider>
+            {children}
+          </DateProvider>
         </AuthProvider>
       </body>
     </html>
   )
 }
+
