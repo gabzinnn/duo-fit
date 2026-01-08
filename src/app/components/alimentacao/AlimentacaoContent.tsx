@@ -36,6 +36,9 @@ export function AlimentacaoContent() {
   const { selectedDateKey, formatSelectedDate, goToPrevDay, goToNextDay, isToday, isFuture, goToToday } = useDate()
   const [data, setData] = useState<AlimentacaoData>(defaultData)
   const [loading, setLoading] = useState(true)
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  const triggerRefresh = () => setRefreshKey(k => k + 1)
 
   useEffect(() => {
     async function fetchData() {
@@ -45,7 +48,7 @@ export function AlimentacaoContent() {
       setLoading(false)
     }
     fetchData()
-  }, [usuario?.id, selectedDateKey])
+  }, [usuario?.id, selectedDateKey, refreshKey])
 
   const dataCapitalizada = formatSelectedDate()
 
@@ -126,10 +129,12 @@ export function AlimentacaoContent() {
               {data.refeicoes.map((refeicao) => (
                 <MealCard
                   key={refeicao.tipo}
+                  refeicaoId={refeicao.id}
                   tipo={refeicao.tipo}
                   horario={refeicao.horario}
                   totalCalorias={refeicao.totalCalorias}
                   alimentos={refeicao.alimentos}
+                  onDataChange={triggerRefresh}
                 />
               ))}
             </div>
