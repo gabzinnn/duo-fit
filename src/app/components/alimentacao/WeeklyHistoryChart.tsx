@@ -117,7 +117,7 @@ function BarItem({
             ${isFuturo ? "bg-slate-200" : "bg-amber-400"}
             ${isSelected && !isFuturo ? "ring-2 ring-amber-600" : ""}
           `}
-          style={{ height: `${Math.max(isFuturo ? 10 : usuario, 5)}%` }}
+          style={{ height: `${Math.min(Math.max(isFuturo ? 10 : usuario, 5), 100)}%` }}
         />
         <div
           className={`
@@ -125,7 +125,7 @@ function BarItem({
             ${isFuturo ? "bg-slate-200" : "bg-purple-500"}
             ${isSelected && !isFuturo ? "ring-2 ring-purple-700" : ""}
           `}
-          style={{ height: `${Math.max(isFuturo ? 10 : rival, 5)}%` }}
+          style={{ height: `${Math.min(Math.max(isFuturo ? 10 : rival, 5), 100)}%` }}
         />
       </div>
       <span

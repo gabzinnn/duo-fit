@@ -173,3 +173,120 @@ export async function createExercicio(data: {
 
     return exercicio
 }
+
+export async function deleteExercicio(id: number, usuarioId: number) {
+    // Find the exercise first
+    const exercicio = await prisma.exercicio.findUnique({
+        where: { id },
+    })
+
+    if (!exercicio) {
+        throw new Error("Exercício não encontrado")
+    }
+
+    if (exercicio.usuarioId !== usuarioId) {
+        throw new Error("Você não tem permissão para excluir este exercício")
+    }
+
+    // Get the date key for the exercise (use Brazil timezone)
+    const exerciseDate = new Date(exercicio.data)
+    const dateKey = exerciseDate.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" })
+    const databaseDate = new Date(dateKey + "T00:00:00.000Z")
+
+    // Delete the exercise
+    await prisma.exercicio.delete({
+        where: { id },
+    })
+
+    // Revert points from daily score
+    await prisma.pontuacaoDiaria.update({
+        where: {
+            usuarioId_data: {
+                usuarioId,
+                data: databaseDate,
+            },
+        },
+        data: {
+            pontosExercicios: { decrement: exercicio.pontos },
+            pontosTotais: { decrement: exercicio.pontos },
+        },
+    })
+
+    revalidatePath("/exercicios")
+    revalidatePath("/home")
+
+    return { success: true }
+}
+
+export async function updateExercicio(
+    id: number,
+    usuarioId: number,
+    data: {
+        tipo: TipoExercicio
+        nome: string
+        descricao?: string
+        duracao: number
+    }
+) {
+    // Find the existing exercise
+    const exercicio = await prisma.exercicio.findUnique({
+        where: { id },
+    })
+
+    if (!exercicio) {
+        throw new Error("Exercício não encontrado")
+    }
+
+    if (exercicio.usuarioId !== usuarioId) {
+        throw new Error("Você não tem permissão para editar este exercício")
+    }
+
+    // Calculate new points
+    let novosPontos = 0
+    if (data.tipo === "ACADEMIA") {
+        novosPontos = 2
+    } else if (data.tipo === "CARDIO") {
+        novosPontos = Math.floor(data.duracao / 30)
+    } else {
+        novosPontos = 1
+    }
+
+    const diferencaPontos = novosPontos - exercicio.pontos
+
+    // Update the exercise
+    const updated = await prisma.exercicio.update({
+        where: { id },
+        data: {
+            tipo: data.tipo,
+            nome: data.nome,
+            descricao: data.descricao,
+            duracao: data.duracao,
+            pontos: novosPontos,
+        },
+    })
+
+    // Update daily points if there's a difference
+    if (diferencaPontos !== 0) {
+        const exerciseDate = new Date(exercicio.data)
+        const dateKey = exerciseDate.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" })
+        const databaseDate = new Date(dateKey + "T00:00:00.000Z")
+
+        await prisma.pontuacaoDiaria.update({
+            where: {
+                usuarioId_data: {
+                    usuarioId,
+                    data: databaseDate,
+                },
+            },
+            data: {
+                pontosExercicios: { increment: diferencaPontos },
+                pontosTotais: { increment: diferencaPontos },
+            },
+        })
+    }
+
+    revalidatePath("/exercicios")
+    revalidatePath("/home")
+
+    return updated
+}
