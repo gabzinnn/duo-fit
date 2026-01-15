@@ -87,8 +87,12 @@ export async function salvarRefeicao(
 
             const fator = item.quantidade > 0 ? (100 / item.quantidade) : 0
 
-            const alimento = await prisma.alimento.create({
-                data: {
+            // Use upsert to handle duplicate food names (e.g., from photo analysis)
+            // If food with same name exists, use it; otherwise create new
+            const alimento = await prisma.alimento.upsert({
+                where: { nome: item.nome },
+                update: {}, // Don't update existing food data
+                create: {
                     nome: item.nome,
                     calorias: Math.round((item.calorias || 0) * fator),
                     proteinas: Number(((item.proteinas || 0) * fator).toFixed(1)),

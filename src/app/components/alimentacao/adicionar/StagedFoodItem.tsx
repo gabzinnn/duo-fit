@@ -147,7 +147,7 @@ export function StagedFoodItem({ item, onRemove, onUpdate }: StagedFoodItemProps
         </div>
 
         {/* Dynamic Macros Preview - Updates in real-time */}
-        <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-4 mb-4">
+        <div className="bg-linear-to-br from-slate-50 to-slate-100 rounded-xl p-4 mb-4">
           <p className="text-xs font-semibold text-slate-500 mb-3 flex items-center gap-1">
             <span className="material-symbols-outlined text-sm">calculate</span>
             {editQuantidade} {getUnitLabel(editUnidade, editQuantidade)}
