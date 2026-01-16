@@ -360,15 +360,21 @@ export function HistoricoRefeicaoTable({ data, filterText, diasInvalidos }: Hist
                       {isDiaInvalido ? "undo" : "do_not_disturb_on"}
                     </span>
                   </button>
-                  <div className="text-right">
-                    <p className={`text-lg font-bold ${isDiaInvalido ? "text-red-400 line-through" : "text-slate-900"}`}>
-                      {Math.round(day.totalCalorias)} kcal
-                    </p>
-                    <p className="text-xs text-slate-500">{day.refeicoes.length} refeições</p>
-                  </div>
-                  <span className={`material-symbols-outlined text-slate-400 transition-transform ${isDayExpanded ? "rotate-180" : ""}`}>
-                    expand_more
-                  </span>
+                  {/* Clickable area for expand/collapse */}
+                  <button
+                    onClick={() => toggleDay(day.dateKey)}
+                    className="flex items-center gap-4 hover:opacity-80 transition-opacity cursor-pointer"
+                  >
+                    <div className="text-right">
+                      <p className={`text-lg font-bold ${isDiaInvalido ? "text-red-400 line-through" : "text-slate-900"}`}>
+                        {Math.round(day.totalCalorias)} kcal
+                      </p>
+                      <p className="text-xs text-slate-500">{day.refeicoes.length} refeições</p>
+                    </div>
+                    <span className={`material-symbols-outlined text-slate-400 transition-transform ${isDayExpanded ? "rotate-180" : ""}`}>
+                      expand_more
+                    </span>
+                  </button>
                 </div>
               </div>
 

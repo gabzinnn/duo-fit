@@ -152,16 +152,33 @@ export async function getAlimentacaoData(usuarioId: number | null, dateKey?: str
         })),
     }))
 
-    // Ensure all meal types exist (for display)
+    // Ensure all meal types exist (for display) - combine multiple meals of the same type
     const tiposRefeicao: TipoRefeicao[] = ["CAFE_DA_MANHA", "ALMOCO", "LANCHE", "JANTAR"]
     const refeicoesCompletas = tiposRefeicao.map((tipo) => {
-        const existente = refeicoesData.find((r) => r.tipo === tipo)
-        return existente || {
-            id: 0,
+        const refeicoesTipo = refeicoesData.filter((r) => r.tipo === tipo)
+
+        if (refeicoesTipo.length === 0) {
+            return {
+                id: 0,
+                tipo,
+                horario: "",
+                totalCalorias: 0,
+                alimentos: [],
+            }
+        }
+
+        // Combine multiple meals of the same type
+        const totalCalorias = refeicoesTipo.reduce((sum, r) => sum + r.totalCalorias, 0)
+        const alimentos = refeicoesTipo.flatMap((r) => r.alimentos)
+        const ultimoHorario = refeicoesTipo[refeicoesTipo.length - 1].horario
+        const primeiroId = refeicoesTipo[0].id
+
+        return {
+            id: primeiroId,
             tipo,
-            horario: "",
-            totalCalorias: 0,
-            alimentos: [],
+            horario: ultimoHorario,
+            totalCalorias,
+            alimentos,
         }
     })
 
