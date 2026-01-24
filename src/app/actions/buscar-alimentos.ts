@@ -179,15 +179,20 @@ export async function buscarAlimentos(query: string): Promise<AlimentoNormalizad
     // PARALLEL: LOCAL + OPENFOODFACTS
     // ==========================
 
-    const localPromise = prisma.alimento.findMany({
-        where: {
-            nome: {
-                contains: query,
-                mode: "insensitive"
-            }
-        },
-        take: 10
-    });
+    // Usando raw query com unaccent (precisa habilitar a extensão no PostgreSQL)
+    const localPromise = prisma.$queryRaw<Array<{
+        id: string;
+        nome: string;
+        calorias: number;
+        proteinas: number;
+        carboidratos: number;
+        gorduras: number;
+    }>>`
+        SELECT id, nome, calorias, proteinas, carboidratos, gorduras
+        FROM "Alimento"
+        WHERE unaccent(lower(nome)) LIKE '%' || unaccent(lower(${query})) || '%'
+        LIMIT 10
+    `;
 
     const openFoodFactsPromise = buscarOpenFoodFacts(query);
 
@@ -198,7 +203,7 @@ export async function buscarAlimentos(query: string): Promise<AlimentoNormalizad
 
     const locaisNormalizados: AlimentoNormalizado[] = alimentosLocais.map((alimento) => ({
         origem: "LOCAL" as const,
-        id: alimento.id,
+        id: Number(alimento.id),
         nome: alimento.nome,
         calorias: alimento.calorias,
         proteinas: alimento.proteinas,
