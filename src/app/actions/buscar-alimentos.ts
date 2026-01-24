@@ -8,10 +8,15 @@ const apiCache = new Map<string, { data: AlimentoNormalizado[]; timestamp: numbe
 const tokenCache: { token: string; expiresAt: number } | null = null;
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+// Remove acentos de uma string
+function removerAcentos(texto: string): string {
+    return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
 // Calcula score de relevância (maior = mais relevante)
 function calcularRelevancia(nome: string, query: string): number {
-    const nomeNorm = nome.toLowerCase().trim();
-    const queryNorm = query.toLowerCase().trim();
+    const nomeNorm = removerAcentos(nome.toLowerCase().trim());
+    const queryNorm = removerAcentos(query.toLowerCase().trim());
 
     if (nomeNorm === queryNorm) return 100;
     if (nomeNorm.startsWith(queryNorm)) return 80;
