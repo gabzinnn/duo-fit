@@ -13,13 +13,21 @@ export function CaloriesProgressCard({
 }: CaloriesProgressCardProps) {
   const percent = Math.min((caloriasIngeridas / metaCalorias) * 100, 100)
   const circumference = 2 * Math.PI * 15.9155
+  const caloriasRestantes = Math.max(0, metaCalorias - caloriasIngeridas)
+  const excedeu = caloriasIngeridas > metaCalorias
 
   return (
     <div className="bg-white rounded-2xl p-6 lg:p-8 shadow-sm border border-slate-100 flex flex-col items-center justify-center relative overflow-hidden">
       {/* Status Badge */}
       <div className="absolute top-4 right-4 lg:top-6 lg:right-6">
-        <span className="bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide">
-          {percent >= 100 ? "Completo" : "Em progresso"}
+        <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${
+          excedeu 
+            ? "bg-red-100 text-red-700" 
+            : percent >= 100 
+              ? "bg-green-100 text-green-700" 
+              : "bg-amber-100 text-amber-700"
+        }`}>
+          {excedeu ? "Excedido" : percent >= 100 ? "Completo" : "Em progresso"}
         </span>
       </div>
 
@@ -36,7 +44,9 @@ export function CaloriesProgressCard({
           />
           {/* Progress Circle */}
           <path
-            className="text-amber-400 drop-shadow-md transition-all duration-1000 ease-out"
+            className={`drop-shadow-md transition-all duration-1000 ease-out ${
+              excedeu ? "text-red-400" : "text-amber-400"
+            }`}
             d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
             fill="none"
             stroke="currentColor"
@@ -76,6 +86,14 @@ export function CaloriesProgressCard({
           color="bg-amber-500"
         />
       </div>
+
+      {/* Calorias Restantes */}
+      <p className={`mt-4 text-xs font-semibold ${excedeu ? "text-red-600" : "text-emerald-600"}`}>
+        {excedeu 
+          ? `${Math.round(caloriasIngeridas - metaCalorias)} kcal acima da meta`
+          : `${Math.round(caloriasRestantes)} kcal restantes`
+        }
+      </p>
     </div>
   )
 }

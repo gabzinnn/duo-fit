@@ -15,7 +15,7 @@ export interface DashboardData {
         totalExercicios: number
     }[]
     evolucaoPontos: {
-        data: string
+        data: string // formato dd/mm/yyyy
         usuario1: number
         usuario2: number
     }[]
@@ -40,11 +40,10 @@ export interface DashboardData {
 }
 
 export async function getDashboardData(): Promise<DashboardData> {
-    noStore() // Disable caching to always fetch fresh data
+    noStore()
 
-    // Create date in Brazil timezone, then convert to UTC midnight for @db.Date
     const todayBrazilDate = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" })
-    const hoje = new Date(todayBrazilDate + "T00:00:00.000Z") // UTC midnight for @db.Date
+    const hoje = new Date(todayBrazilDate + "T00:00:00.000Z")
 
     // Get all users with their stats
     const usuarios = await prisma.usuario.findMany({
@@ -76,14 +75,14 @@ export async function getDashboardData(): Promise<DashboardData> {
         },
     })
 
-    // Get last 7 days evolution
-    const seteDiasAtras = new Date(hoje)
-    seteDiasAtras.setDate(seteDiasAtras.getDate() - 6)
+    // Buscar últimos 90 dias para permitir visualização por semanas/meses
+    const noventaDiasAtras = new Date(hoje)
+    noventaDiasAtras.setDate(noventaDiasAtras.getDate() - 89)
 
     const evolucao = await prisma.pontuacaoDiaria.findMany({
         where: {
             data: {
-                gte: seteDiasAtras,
+                gte: noventaDiasAtras,
                 lte: hoje,
             },
         },
@@ -122,9 +121,7 @@ export async function getDashboardData(): Promise<DashboardData> {
         const ptsHoje = pontosHoje.find((p) => p.usuarioId === u.id)
         let sequenciaAtual = u.sequencias[0]?.sequenciaAtual ?? 0
 
-        // If no sequence record exists, calculate from exercise history
         if (!u.sequencias[0] && u._count.exercicios > 0) {
-            // Get all daily point records for this user, ordered by date desc
             const diasComPontos = await prisma.pontuacaoDiaria.findMany({
                 where: { usuarioId: u.id },
                 orderBy: { data: "desc" },
@@ -132,9 +129,7 @@ export async function getDashboardData(): Promise<DashboardData> {
             })
 
             if (diasComPontos.length > 0) {
-                // Calculate streak by checking consecutive days
                 let streak = 0
-                const todayKey = hoje.toISOString().split("T")[0]
                 let currentDateCheck = new Date(hoje)
 
                 for (const dia of diasComPontos) {
@@ -145,7 +140,6 @@ export async function getDashboardData(): Promise<DashboardData> {
                         streak++
                         currentDateCheck.setDate(currentDateCheck.getDate() - 1)
                     } else if (diaKey < checkKey) {
-                        // Gap found, stop counting
                         break
                     }
                 }
@@ -165,49 +159,24 @@ export async function getDashboardData(): Promise<DashboardData> {
         }
     }))
 
-    // Sort by points (leader first)
     usuariosData.sort((a, b) => b.pontosTotais - a.pontosTotais)
 
-    // Build evolution data - group by date string from database
-    const diasSemana = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"]
-    const evolucaoPontos: DashboardData["evolucaoPontos"] = []
-
-    // Get day of week in Brazil timezone from a date
-    const getDiaSemana = (date: Date) => {
-        const brazilDateStr = date.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" })
-        const brazilDate = new Date(brazilDateStr)
-        return diasSemana[brazilDate.getDay()]
-    }
-
-    // For @db.Date fields, the database stores just the date (no time).
-    // Prisma returns them as midnight UTC. We extract using UTC getters to avoid timezone shift.
-    const getDateKeyFromDbDate = (date: Date) => {
-        const year = date.getUTCFullYear()
-        const month = String(date.getUTCMonth() + 1).padStart(2, "0")
+    // Formata data do banco (UTC midnight) para dd/mm/yyyy
+    const formatDateFromDb = (date: Date): string => {
         const day = String(date.getUTCDate()).padStart(2, "0")
-        return `${year}-${month}-${day}`
+        const month = String(date.getUTCMonth() + 1).padStart(2, "0")
+        const year = date.getUTCFullYear()
+        return `${day}/${month}/${year}`
     }
 
-    // For the day of week label, we use the UTC date directly since it represents the actual day stored
-    const getDiaSemanaFromDbDate = (date: Date) => {
-        return diasSemana[date.getUTCDay()]
-    }
-
-    // Get date key for "today" in Brazil timezone
-    const getTodayDateKey = () => {
-        const now = new Date()
-        return now.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" })
-    }
-
-    // Build map of evolution data by date
-    const evolucaoMap = new Map<string, { usuario1: number; usuario2: number; diaSemana: string }>()
+    // Build evolution data - agrupa por data
+    const evolucaoMap = new Map<string, { usuario1: number; usuario2: number }>()
 
     for (const e of evolucao) {
-        const dateKey = getDateKeyFromDbDate(e.data)
-        const diaSemana = getDiaSemanaFromDbDate(e.data)
+        const dateKey = formatDateFromDb(e.data)
 
         if (!evolucaoMap.has(dateKey)) {
-            evolucaoMap.set(dateKey, { usuario1: 0, usuario2: 0, diaSemana })
+            evolucaoMap.set(dateKey, { usuario1: 0, usuario2: 0 })
         }
 
         const entry = evolucaoMap.get(dateKey)!
@@ -218,19 +187,17 @@ export async function getDashboardData(): Promise<DashboardData> {
         }
     }
 
-    // Get last 7 days including today (using Brazil timezone for "today")
-    const todayBrazil = getTodayDateKey()
-    const todayDate = new Date(todayBrazil + "T12:00:00") // Use noon to avoid date boundary issues
-
-    for (let i = 6; i >= 0; i--) {
-        const targetDate = new Date(todayDate)
-        targetDate.setDate(targetDate.getDate() - i)
-        const dateKey = targetDate.toISOString().split("T")[0] // YYYY-MM-DD in local time
-        const diaSemana = diasSemana[targetDate.getDay()]
+    // Gera array de todos os dias dos últimos 90 dias
+    const evolucaoPontos: DashboardData["evolucaoPontos"] = []
+    
+    for (let i = 89; i >= 0; i--) {
+        const targetDate = new Date(hoje)
+        targetDate.setUTCDate(targetDate.getUTCDate() - i)
+        const dateKey = formatDateFromDb(targetDate)
 
         const entry = evolucaoMap.get(dateKey)
         evolucaoPontos.push({
-            data: entry?.diaSemana ?? diaSemana,
+            data: dateKey,
             usuario1: entry?.usuario1 ?? 0,
             usuario2: entry?.usuario2 ?? 0,
         })
