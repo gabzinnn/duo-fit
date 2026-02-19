@@ -7,16 +7,19 @@ import {
   CaloriesCard,
   ActivityFeed,
   ActivityCalendar,
+  MonthlyRetrospective,
 } from "@/app/components/dashboard"
 import type { DashboardData } from "@/app/actions/dashboard"
-import type { CalendarData } from "@/app/actions/calendar"
+import { getCalendarData, type CalendarData } from "@/app/actions/calendar"
+import { getRetrospectivaMensal, type RetrospectivaMensal } from "@/app/actions/retrospectiva"
 
 interface HomeContentProps {
   data: DashboardData
   calendarData: CalendarData
+  retrospectiva: RetrospectivaMensal
 }
 
-export function HomeContent({ data, calendarData }: HomeContentProps) {
+export function HomeContent({ data, calendarData, retrospectiva }: HomeContentProps) {
   const { usuario } = useAuth()
   const { usuarios, evolucaoPontos, caloriasDiarias, atividadesHoje } = data
 
@@ -28,6 +31,15 @@ export function HomeContent({ data, calendarData }: HomeContentProps) {
   // Determine leader
   const leader = usuarios[0]
   const challenger = usuarios[1]
+
+  // Data fetching handlers
+  const handleCalendarChange = async (year: number, month: number) => {
+    return getCalendarData(year, month)
+  }
+
+  const handleRetrospectivaChange = async (year: number, month: number) => {
+    return getRetrospectivaMensal(year, month)
+  }
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
@@ -82,6 +94,10 @@ export function HomeContent({ data, calendarData }: HomeContentProps) {
               data={calendarData.exercicios}
               ano={ano}
               mes={mes}
+              onMesChange={async (y, m) => {
+                const res = await handleCalendarChange(y, m)
+                return res.exercicios
+              }}
             />
             <ActivityCalendar
               title="Dieta"
@@ -89,8 +105,13 @@ export function HomeContent({ data, calendarData }: HomeContentProps) {
               data={calendarData.calorias}
               ano={ano}
               mes={mes}
+              onMesChange={async (y, m) => {
+                const res = await handleCalendarChange(y, m)
+                return res.calorias
+              }}
             />
           </div>
+
 
           {/* Charts and Stats Row */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -98,11 +119,11 @@ export function HomeContent({ data, calendarData }: HomeContentProps) {
             <div className="lg:col-span-2">
               {leader && challenger && (
                 <ScoreChart
-                  data={evolucaoPontos}
-                  usuario1Nome={leader.nome}
-                  usuario2Nome={challenger.nome}
-                  usuario1Cor={leader.cor}
-                  usuario2Cor={challenger.cor}
+                data={evolucaoPontos}
+                usuario1Nome={leader.nome}
+                usuario2Nome={challenger.nome}
+                usuario1Cor={leader.cor}
+                usuario2Cor={challenger.cor}
                 />
               )}
             </div>
@@ -113,6 +134,13 @@ export function HomeContent({ data, calendarData }: HomeContentProps) {
               <ActivityFeed atividades={atividadesHoje} />
             </div>
           </div>
+              {/* Monthly Retrospective */}
+              <MonthlyRetrospective
+                data={retrospectiva}
+                ano={ano}
+                mes={mes}
+                onMesChange={handleRetrospectivaChange}
+              />
         </div>
       </div>
     </div>
