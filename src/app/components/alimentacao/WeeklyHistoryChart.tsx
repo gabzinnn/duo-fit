@@ -2,17 +2,28 @@
 
 import { useState } from "react"
 import type { DiaHistorico } from "@/app/actions/alimentacao"
+import type { CorUsuario } from "@/generated/prisma/client"
 
 interface WeeklyHistoryChartProps {
   data: DiaHistorico[]
   usuarioNome: string
   rivalNome: string
+  usuarioCor: CorUsuario
+  rivalCor: CorUsuario
 }
+
+// Classes por cor (mesma convenção de UserScoreCard: AMARELO/ROXO)
+const corClasses = {
+  AMARELO: { badgeBg: "bg-amber-50", badgeBorder: "border-amber-200", dot: "bg-amber-400", bar: "bg-amber-400", ring: "ring-amber-600" },
+  ROXO: { badgeBg: "bg-purple-50", badgeBorder: "border-purple-200", dot: "bg-purple-500", bar: "bg-purple-500", ring: "ring-purple-700" },
+} as const
 
 export function WeeklyHistoryChart({
   data,
   usuarioNome,
   rivalNome,
+  usuarioCor,
+  rivalCor,
 }: WeeklyHistoryChartProps) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
 
@@ -27,12 +38,12 @@ export function WeeklyHistoryChart({
           <p className="text-slate-500 text-sm">Comparativo com sua meta</p>
         </div>
         <div className="flex gap-3">
-          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-amber-50 border border-amber-200">
-            <div className="w-2 h-2 rounded-full bg-amber-400" />
+          <div className={`flex items-center gap-2 px-3 py-1 rounded-full border ${corClasses[usuarioCor].badgeBg} ${corClasses[usuarioCor].badgeBorder}`}>
+            <div className={`w-2 h-2 rounded-full ${corClasses[usuarioCor].dot}`} />
             <span className="text-xs font-bold text-slate-600">{usuarioNome}</span>
           </div>
-          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-purple-50 border border-purple-200">
-            <div className="w-2 h-2 rounded-full bg-purple-500" />
+          <div className={`flex items-center gap-2 px-3 py-1 rounded-full border ${corClasses[rivalCor].badgeBg} ${corClasses[rivalCor].badgeBorder}`}>
+            <div className={`w-2 h-2 rounded-full ${corClasses[rivalCor].dot}`} />
             <span className="text-xs font-bold text-slate-600">{rivalNome}</span>
           </div>
         </div>
@@ -53,6 +64,8 @@ export function WeeklyHistoryChart({
             onSelect={() => setSelectedIndex(selectedIndex === index ? null : index)}
             usuarioNome={usuarioNome}
             rivalNome={rivalNome}
+            usuarioCor={usuarioCor}
+            rivalCor={rivalCor}
           />
         ))}
       </div>
@@ -71,6 +84,8 @@ interface BarItemProps {
   onSelect: () => void
   usuarioNome: string
   rivalNome: string
+  usuarioCor: CorUsuario
+  rivalCor: CorUsuario
 }
 
 function BarItem({
@@ -83,11 +98,13 @@ function BarItem({
   onSelect,
   usuarioNome,
   rivalNome,
+  usuarioCor,
+  rivalCor,
 }: BarItemProps) {
   return (
     <div
       className={`
-        flex flex-col items-center gap-2 w-full h-full justify-end 
+        flex flex-col items-center gap-2 w-full h-full justify-end
         group cursor-pointer relative
         ${isFuturo ? "opacity-30" : ""}
       `}
@@ -98,11 +115,11 @@ function BarItem({
         <div className="absolute -top-16 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-3 py-2 rounded-lg shadow-lg z-10 min-w-max">
           <div className="text-xs font-medium space-y-1">
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-amber-400" />
+              <div className={`w-2 h-2 rounded-full ${corClasses[usuarioCor].dot}`} />
               <span>{usuarioNome}: {usuario}%</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-purple-500" />
+              <div className={`w-2 h-2 rounded-full ${corClasses[rivalCor].dot}`} />
               <span>{rivalNome}: {rival}%</span>
             </div>
           </div>
@@ -114,16 +131,16 @@ function BarItem({
         <div
           className={`
             w-3 rounded-full group-hover:opacity-80 transition-all duration-300
-            ${isFuturo ? "bg-slate-200" : "bg-amber-400"}
-            ${isSelected && !isFuturo ? "ring-2 ring-amber-600" : ""}
+            ${isFuturo ? "bg-slate-200" : corClasses[usuarioCor].bar}
+            ${isSelected && !isFuturo ? `ring-2 ${corClasses[usuarioCor].ring}` : ""}
           `}
           style={{ height: `${Math.min(Math.max(isFuturo ? 10 : usuario, 5), 100)}%` }}
         />
         <div
           className={`
             w-3 rounded-full group-hover:opacity-80 transition-all duration-300
-            ${isFuturo ? "bg-slate-200" : "bg-purple-500"}
-            ${isSelected && !isFuturo ? "ring-2 ring-purple-700" : ""}
+            ${isFuturo ? "bg-slate-200" : corClasses[rivalCor].bar}
+            ${isSelected && !isFuturo ? `ring-2 ${corClasses[rivalCor].ring}` : ""}
           `}
           style={{ height: `${Math.min(Math.max(isFuturo ? 10 : rival, 5), 100)}%` }}
         />

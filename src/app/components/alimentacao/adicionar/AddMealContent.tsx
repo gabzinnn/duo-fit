@@ -216,10 +216,13 @@ export function AddMealContent() {
             <div className="lg:col-span-7 flex flex-col gap-6">
               <MealTypeSelector selected={mealType} onChange={setMealType} />
               <PhotoAnalyzer onFoodsDetected={handleFoodsFromPhoto} />
-              <FoodSearchInput
-                onSelect={handleAddFood}
-                onCreateClick={() => setShowCreateModal(true)}
-              />
+              {usuario?.id && (
+                <FoodSearchInput
+                  usuarioId={usuario.id}
+                  onSelect={handleAddFood}
+                  onCreateClick={() => setShowCreateModal(true)}
+                />
+              )}
               <StagedFoodList
                 items={stagedItems}
                 onRemove={handleRemoveItem}

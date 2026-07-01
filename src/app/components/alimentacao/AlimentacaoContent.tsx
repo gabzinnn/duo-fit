@@ -29,6 +29,8 @@ const defaultData: AlimentacaoData = {
   historicoSemanal: [],
   rivalNome: "Rival",
   rivalCalorias: 0,
+  usuarioCor: "AMARELO",
+  rivalCor: "ROXO",
 }
 
 export function AlimentacaoContent() {
@@ -116,6 +118,8 @@ export function AlimentacaoContent() {
                 data={data.historicoSemanal}
                 usuarioNome={usuario?.nome ?? "Você"}
                 rivalNome={data.rivalNome}
+                usuarioCor={data.usuarioCor}
+                rivalCor={data.rivalCor}
               />
             </div>
           </div>

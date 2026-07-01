@@ -5,11 +5,12 @@ import { buscarAlimentos } from "@/app/actions/buscar-alimentos"
 import type { AlimentoNormalizado } from "@/utils/normalizar-alimento"
 
 interface FoodSearchInputProps {
+  usuarioId: number
   onSelect: (alimento: AlimentoNormalizado, quantidade: number, unidade: string) => void
   onCreateClick: () => void
 }
 
-export function FoodSearchInput({ onSelect, onCreateClick }: FoodSearchInputProps) {
+export function FoodSearchInput({ usuarioId, onSelect, onCreateClick }: FoodSearchInputProps) {
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<AlimentoNormalizado[]>([])
   const [loading, setLoading] = useState(false)
@@ -29,14 +30,14 @@ export function FoodSearchInput({ onSelect, onCreateClick }: FoodSearchInputProp
 
     const timer = setTimeout(async () => {
       setLoading(true)
-      const data = await buscarAlimentos(query)
+      const data = await buscarAlimentos(query, usuarioId)
       setResults(data)
       setLoading(false)
       setShowResults(true)
     }, 300)
 
     return () => clearTimeout(timer)
-  }, [query])
+  }, [query, usuarioId])
 
   // Close dropdown on outside click
   useEffect(() => {

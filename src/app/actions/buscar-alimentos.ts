@@ -253,8 +253,8 @@ async function buscarFatSecret(query: string): Promise<AlimentoNormalizado[]> {
     }
 }
 
-// Busca local no banco
-async function buscarLocal(query: string): Promise<AlimentoNormalizado[]> {
+// Busca local no banco (com contagem de uso do usuário em refeições passadas)
+async function buscarLocal(query: string, usuarioId: number): Promise<Array<AlimentoNormalizado & { usos: number }>> {
     try {
         const alimentos = await prisma.$queryRaw<Array<{
             id: string;
@@ -263,15 +263,25 @@ async function buscarLocal(query: string): Promise<AlimentoNormalizado[]> {
             proteinas: number;
             carboidratos: number;
             gorduras: number;
+            usos: number;
         }>>`
-            SELECT id, nome, calorias, proteinas, carboidratos, gorduras
-            FROM "Alimento"
-            WHERE unaccent(lower(nome)) LIKE '%' || unaccent(lower(${query})) || '%'
-            ORDER BY 
-                CASE WHEN unaccent(lower(nome)) = unaccent(lower(${query})) THEN 0
-                     WHEN unaccent(lower(nome)) LIKE unaccent(lower(${query})) || '%' THEN 1
+            SELECT a.id, a.nome, a.calorias, a.proteinas, a.carboidratos, a.gorduras,
+                   COALESCE(uso.cnt, 0)::int as usos
+            FROM "Alimento" a
+            LEFT JOIN (
+                SELECT ar."alimentoId", COUNT(*) as cnt
+                FROM "AlimentoRefeicao" ar
+                JOIN "Refeicao" r ON r.id = ar."refeicaoId"
+                WHERE r."usuarioId" = ${usuarioId}
+                GROUP BY ar."alimentoId"
+            ) uso ON uso."alimentoId" = a.id
+            WHERE immutable_unaccent(lower(a.nome)) LIKE '%' || immutable_unaccent(lower(${query})) || '%'
+            ORDER BY
+                CASE WHEN immutable_unaccent(lower(a.nome)) = immutable_unaccent(lower(${query})) THEN 0
+                     WHEN immutable_unaccent(lower(a.nome)) LIKE immutable_unaccent(lower(${query})) || '%' THEN 1
                      ELSE 2 END,
-                length(nome)
+                uso.cnt DESC NULLS LAST,
+                length(a.nome)
             LIMIT 15
         `;
 
@@ -283,19 +293,20 @@ async function buscarLocal(query: string): Promise<AlimentoNormalizado[]> {
             proteinas: a.proteinas,
             carboidratos: a.carboidratos,
             gorduras: a.gorduras,
+            usos: a.usos,
         }));
     } catch {
         return [];
     }
 }
 
-export async function buscarAlimentos(query: string): Promise<AlimentoNormalizado[]> {
+export async function buscarAlimentos(query: string, usuarioId: number): Promise<AlimentoNormalizado[]> {
     const q = query?.trim();
     if (!q || q.length < 2) return [];
 
     // Busca paralela em todas as fontes
     const [locais, offResults, fsResults] = await Promise.all([
-        buscarLocal(q),
+        buscarLocal(q, usuarioId),
         buscarOpenFoodFacts(q),
         buscarFatSecret(q),
     ]);
@@ -305,7 +316,7 @@ export async function buscarAlimentos(query: string): Promise<AlimentoNormalizad
     const matchExato = locais.find(a => normalizar(a.nome) === queryNorm);
     if (matchExato && locais.length >= 5) {
         // Já temos bons resultados locais
-        return locais.slice(0, 15);
+        return locais.slice(0, 15).map(({ usos, ...rest }) => rest);
     }
 
     // Merge com deduplicação inteligente
@@ -315,7 +326,7 @@ export async function buscarAlimentos(query: string): Promise<AlimentoNormalizad
         for (const item of items) {
             const chave = gerarChaveDedup(item.nome);
             const score = calcularRelevancia(item.nome, q) + prioridade;
-            
+
             const existing = mapa.get(chave);
             if (!existing || existing.score < score) {
                 mapa.set(chave, { ...item, score });
@@ -324,7 +335,18 @@ export async function buscarAlimentos(query: string): Promise<AlimentoNormalizad
     };
 
     // Prioridade: LOCAL > FATSECRET > OPEN_FOOD_FACTS
-    addToMap(locais, 20);
+    // Alimentos locais ganham bônus proporcional ao uso do usuário em refeições passadas (cap para não dominar sobre nome divergente)
+    const locaisSemUsos = locais.map(({ usos, ...item }) => ({
+        item,
+        score: calcularRelevancia(item.nome, q) + 20 + Math.min(usos * 3, 15),
+    }));
+    for (const { item, score } of locaisSemUsos) {
+        const chave = gerarChaveDedup(item.nome);
+        const existing = mapa.get(chave);
+        if (!existing || existing.score < score) {
+            mapa.set(chave, { ...item, score });
+        }
+    }
     addToMap(fsResults, 5);
     addToMap(offResults, 0);
 

@@ -2,7 +2,7 @@
 
 import { unstable_noStore as noStore } from "next/cache"
 import prisma from "@/lib/prisma"
-import { TipoRefeicao } from "@/generated/prisma/client"
+import { TipoRefeicao, CorUsuario } from "@/generated/prisma/client"
 
 // =========================
 // TYPES
@@ -47,6 +47,8 @@ export interface AlimentacaoData {
     historicoSemanal: DiaHistorico[]
     rivalNome: string
     rivalCalorias: number
+    usuarioCor: CorUsuario
+    rivalCor: CorUsuario
 }
 
 // =========================
@@ -83,6 +85,8 @@ export async function getAlimentacaoData(usuarioId: number | null, dateKey?: str
             historicoSemanal: [],
             rivalNome: "Rival",
             rivalCalorias: 0,
+            usuarioCor: "AMARELO",
+            rivalCor: "ROXO",
         }
     }
 
@@ -268,6 +272,8 @@ export async function getAlimentacaoData(usuarioId: number | null, dateKey?: str
         historicoSemanal,
         rivalNome: rival?.nome ?? "Rival",
         rivalCalorias: rivalCalorias?.caloriasIngeridas ?? 0,
+        usuarioCor: usuario?.cor ?? "AMARELO",
+        rivalCor: rival?.cor ?? "ROXO",
     }
 }
 
