@@ -7,6 +7,7 @@ export type AlimentoNormalizado = {
     proteinas: number;
     carboidratos: number;
     gorduras: number;
+    pesoUnidade?: number | null;
 };
 
 // OpenFoodFacts API normalizer

@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useRef } from "react"
 import { buscarAlimentos } from "@/app/actions/buscar-alimentos"
+import { atualizarPesoUnidade } from "@/app/actions/refeicao"
 import type { AlimentoNormalizado } from "@/utils/normalizar-alimento"
 
 interface FoodSearchInputProps {
   usuarioId: number
-  onSelect: (alimento: AlimentoNormalizado, quantidade: number, unidade: string) => void
+  onSelect: (alimento: AlimentoNormalizado, quantidade: number, unidade: string, pesoUnidade?: number | null) => void
   onCreateClick: () => void
 }
 
@@ -18,6 +19,8 @@ export function FoodSearchInput({ usuarioId, onSelect, onCreateClick }: FoodSear
   const [quantidade, setQuantidade] = useState(100)
   const [unidade, setUnidade] = useState("g")
   const [selectedFood, setSelectedFood] = useState<AlimentoNormalizado | null>(null)
+  const [pesoUnidadeInput, setPesoUnidadeInput] = useState("")
+  const [editandoPeso, setEditandoPeso] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const resultsRef = useRef<HTMLDivElement>(null)
 
@@ -59,15 +62,40 @@ export function FoodSearchInput({ usuarioId, onSelect, onCreateClick }: FoodSear
     setSelectedFood(alimento)
     setQuery(alimento.nome)
     setShowResults(false)
+    setPesoUnidadeInput("")
+    setEditandoPeso(false)
   }
 
+  const handleSalvarEdicaoPeso = () => {
+    const novoPeso = Number(pesoUnidadeInput)
+    if (!selectedFood?.id || selectedFood.origem !== "LOCAL" || novoPeso <= 0) return
+    atualizarPesoUnidade(selectedFood.id, novoPeso)
+    setSelectedFood({ ...selectedFood, pesoUnidade: novoPeso })
+    setEditandoPeso(false)
+    setPesoUnidadeInput("")
+  }
+
+  // Peso por unidade: já cadastrado no alimento, ou o que o usuário acabou de digitar
+  const precisaPesoUnidade = unidade === "un" && !selectedFood?.pesoUnidade
+  const pesoUnidadeResolvido = unidade !== "un"
+    ? undefined
+    : selectedFood?.pesoUnidade ?? (Number(pesoUnidadeInput) > 0 ? Number(pesoUnidadeInput) : null)
+
   const handleAdd = () => {
-    if (selectedFood) {
-      onSelect(selectedFood, quantidade, unidade)
-      setQuery("")
-      setSelectedFood(null)
-      setQuantidade(100)
+    if (!selectedFood) return
+    if (precisaPesoUnidade && !pesoUnidadeResolvido) return
+
+    onSelect(selectedFood, quantidade, unidade, pesoUnidadeResolvido)
+
+    // Alimento do catálogo local recebendo peso de unidade pela primeira vez: salva para não perguntar de novo
+    if (precisaPesoUnidade && pesoUnidadeResolvido && selectedFood.origem === "LOCAL" && selectedFood.id) {
+      atualizarPesoUnidade(selectedFood.id, pesoUnidadeResolvido)
     }
+
+    setQuery("")
+    setSelectedFood(null)
+    setQuantidade(100)
+    setPesoUnidadeInput("")
   }
 
   return (
@@ -165,13 +193,13 @@ export function FoodSearchInput({ usuarioId, onSelect, onCreateClick }: FoodSear
                 type="number"
                 value={quantidade}
                 onChange={(e) => setQuantidade(Number(e.target.value))}
-                className="w-20 sm:w-24 py-3 px-4 bg-slate-50 border border-slate-200 rounded-l-xl 
+                className="w-20 sm:w-24 py-3 px-4 bg-slate-50 border border-slate-200 rounded-l-xl
                   focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none text-slate-900"
               />
               <select
                 value={unidade}
                 onChange={(e) => setUnidade(e.target.value)}
-                className="flex-1 py-3 pl-3 pr-4 bg-slate-100 border-y border-r border-slate-200 
+                className="flex-1 py-3 pl-3 pr-4 bg-slate-100 border-y border-r border-slate-200
                   rounded-r-xl text-slate-700 focus:ring-0 cursor-pointer"
               >
                 <option value="g">gramas (g)</option>
@@ -185,9 +213,9 @@ export function FoodSearchInput({ usuarioId, onSelect, onCreateClick }: FoodSear
             <button
               type="button"
               onClick={handleAdd}
-              disabled={!selectedFood}
-              className="w-full sm:w-auto h-[50px] px-6 sm:px-8 bg-slate-900 text-white font-bold rounded-xl 
-                hover:bg-primary transition-all shadow-lg shadow-slate-200 
+              disabled={!selectedFood || (precisaPesoUnidade && !pesoUnidadeResolvido)}
+              className="w-full sm:w-auto h-[50px] px-6 sm:px-8 bg-slate-900 text-white font-bold rounded-xl
+                hover:bg-primary transition-all shadow-lg shadow-slate-200
                 flex items-center justify-center gap-2
                 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
@@ -196,6 +224,71 @@ export function FoodSearchInput({ usuarioId, onSelect, onCreateClick }: FoodSear
             </button>
           </div>
         </div>
+
+        {/* Peso por unidade */}
+        {selectedFood && unidade === "un" && (
+          selectedFood.pesoUnidade ? (
+            editandoPeso ? (
+              <div className="flex items-center gap-2 -mt-2">
+                <input
+                  type="number"
+                  autoFocus
+                  placeholder="Peso de 1 unidade (g)"
+                  value={pesoUnidadeInput}
+                  onChange={(e) => setPesoUnidadeInput(e.target.value)}
+                  className="w-32 h-9 px-3 rounded-lg bg-slate-50 border border-slate-200
+                    text-sm text-slate-900 outline-none placeholder:text-slate-400
+                    focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={handleSalvarEdicaoPeso}
+                  className="text-xs font-medium text-primary hover:underline cursor-pointer"
+                >
+                  Salvar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditandoPeso(false)}
+                  className="text-xs text-slate-400 hover:underline cursor-pointer"
+                >
+                  Cancelar
+                </button>
+              </div>
+            ) : (
+              <p className="text-xs text-slate-500 -mt-2">
+                1 unidade ≈ {selectedFood.pesoUnidade}g
+                {selectedFood.origem === "LOCAL" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPesoUnidadeInput(String(selectedFood.pesoUnidade))
+                      setEditandoPeso(true)
+                    }}
+                    className="ml-2 text-primary hover:underline cursor-pointer"
+                  >
+                    editar
+                  </button>
+                )}
+              </p>
+            )
+          ) : (
+            <div className="flex flex-col gap-1.5 -mt-2">
+              <label className="text-xs font-medium text-slate-600">
+                Peso de 1 unidade (g) — usado para calcular as calorias
+              </label>
+              <input
+                type="number"
+                placeholder="Ex: 20"
+                value={pesoUnidadeInput}
+                onChange={(e) => setPesoUnidadeInput(e.target.value)}
+                className="w-full sm:w-40 h-10 px-3 rounded-lg bg-slate-50 border border-slate-200
+                  text-sm text-slate-900 outline-none placeholder:text-slate-400
+                  focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+              />
+            </div>
+          )
+        )}
       </div>
     </div>
   )

@@ -1,4 +1,5 @@
 import type { StagedItem } from "./StagedFoodItem"
+import { calcularMultiplicador } from "@/utils/calcular-multiplicador"
 
 interface MealSummaryCardProps {
   items: StagedItem[]
@@ -17,21 +18,10 @@ export function MealSummaryCard({
   onCancel,
   saving,
 }: MealSummaryCardProps) {
-  // Helper to check if unit uses weight-based calculation
-  const isWeightUnit = (unit: string) => unit === "g" || unit === "ml"
-  
-  // Calculate multiplier based on unit type (same logic as StagedFoodItem)
-  const getMultiplier = (qty: number, unit: string) => {
-    if (isWeightUnit(unit)) {
-      return qty / 100 // 100g = base values
-    }
-    return qty // 1 porção = base values (100g worth)
-  }
-
   // Calculate totals from items (respect isPreCalculated flag and unit type)
   const totals = items.reduce(
     (acc, item) => {
-      const multiplier = item.isPreCalculated ? 1 : getMultiplier(item.quantidade, item.unidade)
+      const multiplier = item.isPreCalculated ? 1 : calcularMultiplicador(item.quantidade, item.unidade, item.pesoUnidade)
       return {
         calorias: acc.calorias + item.calorias * multiplier,
         proteinas: acc.proteinas + item.proteinas * multiplier,

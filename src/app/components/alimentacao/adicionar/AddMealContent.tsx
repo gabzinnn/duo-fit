@@ -8,6 +8,7 @@ import { useDate } from "@/context/DateContext"
 import { TipoRefeicao } from "@/generated/prisma/client"
 import type { AlimentoNormalizado } from "@/utils/normalizar-alimento"
 import { salvarRefeicao } from "@/app/actions/refeicao"
+import { calcularMultiplicador } from "@/utils/calcular-multiplicador"
 import { getAlimentacaoData } from "@/app/actions/alimentacao"
 
 import { MealTypeSelector } from "./MealTypeSelector"
@@ -52,7 +53,8 @@ export function AddMealContent() {
   const handleAddFood = (
     alimento: AlimentoNormalizado,
     quantidade: number,
-    unidade: string
+    unidade: string,
+    pesoUnidade?: number | null
   ) => {
     const newItem: StagedItem = {
       id: `${Date.now()}-${Math.random()}`,
@@ -64,6 +66,7 @@ export function AddMealContent() {
       proteinas: alimento.proteinas,
       carboidratos: alimento.carboidratos,
       gorduras: alimento.gorduras,
+      pesoUnidade,
     }
     setStagedItems((prev) => [...prev, newItem])
   }
@@ -85,6 +88,7 @@ export function AddMealContent() {
     proteinas: number
     carboidratos: number
     gorduras: number
+    pesoUnidade?: number | null
   }) => {
     // Add created food to staged items
     const newItem: StagedItem = {
@@ -97,6 +101,7 @@ export function AddMealContent() {
       proteinas: alimento.proteinas,
       carboidratos: alimento.carboidratos,
       gorduras: alimento.gorduras,
+      pesoUnidade: alimento.pesoUnidade,
     }
     setStagedItems((prev) => [...prev, newItem])
   }
@@ -150,8 +155,7 @@ export function AddMealContent() {
             } else {
               // Item values are BASE (per 100g or per unit)
               // We must convert to totals based on unit type
-              const isWeightUnit = item.unidade === "g" || item.unidade === "ml"
-              const multiplier = isWeightUnit ? item.quantidade / 100 : item.quantidade
+              const multiplier = calcularMultiplicador(item.quantidade, item.unidade, item.pesoUnidade)
               payload.calorias = item.calorias * multiplier
               payload.proteinas = item.proteinas * multiplier
               payload.carboidratos = item.carboidratos * multiplier

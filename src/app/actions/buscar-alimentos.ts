@@ -263,9 +263,10 @@ async function buscarLocal(query: string, usuarioId: number): Promise<Array<Alim
             proteinas: number;
             carboidratos: number;
             gorduras: number;
+            pesoUnidade: number | null;
             usos: number;
         }>>`
-            SELECT a.id, a.nome, a.calorias, a.proteinas, a.carboidratos, a.gorduras,
+            SELECT a.id, a.nome, a.calorias, a.proteinas, a.carboidratos, a.gorduras, a."pesoUnidade",
                    COALESCE(uso.cnt, 0)::int as usos
             FROM "Alimento" a
             LEFT JOIN (
@@ -293,6 +294,7 @@ async function buscarLocal(query: string, usuarioId: number): Promise<Array<Alim
             proteinas: a.proteinas,
             carboidratos: a.carboidratos,
             gorduras: a.gorduras,
+            pesoUnidade: a.pesoUnidade,
             usos: a.usos,
         }));
     } catch {

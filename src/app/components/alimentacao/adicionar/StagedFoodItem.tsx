@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { calcularMultiplicador } from "@/utils/calcular-multiplicador"
 
 export interface StagedItem {
   id: string // Unique key for list
@@ -12,6 +13,7 @@ export interface StagedItem {
   proteinas: number
   carboidratos: number
   gorduras: number
+  pesoUnidade?: number | null // Peso de 1 unidade em gramas (quando unidade === "un")
   isPreCalculated?: boolean // True when values already include quantity (e.g., from photo analysis)
 }
 
@@ -32,24 +34,16 @@ export function StagedFoodItem({ item, onRemove, onUpdate }: StagedFoodItemProps
   const [baseCarboidratos, setBaseCarboidratos] = useState(item.carboidratos)
   const [baseGorduras, setBaseGorduras] = useState(item.gorduras)
 
-  // Check if unit uses weight-based calculation (g, ml) or unit-based (1 unit = 100g worth)
+  // Check if unit uses weight-based calculation (g, ml)
   const isWeightUnit = (unit: string) => unit === "g" || unit === "ml"
-  
-  // Calculate the multiplier based on unit type
-  const getMultiplier = (qty: number, unit: string) => {
-    if (isWeightUnit(unit)) {
-      return qty / 100 // 100g = base values
-    }
-    return qty // 1 porção = base values (100g worth)
-  }
 
   // Calculate displayed macros for the list view (must use same logic as edit preview)
-  const displayMultiplier = item.isPreCalculated ? 1 : getMultiplier(item.quantidade, item.unidade)
+  const displayMultiplier = item.isPreCalculated ? 1 : calcularMultiplicador(item.quantidade, item.unidade, item.pesoUnidade)
   const displayCalorias = Math.round(item.calorias * displayMultiplier)
   const displayProteinas = Math.round(item.proteinas * displayMultiplier)
 
   // Calculate LIVE preview values when editing (uses editable base values)
-  const editMultiplier = getMultiplier(editQuantidade, editUnidade)
+  const editMultiplier = calcularMultiplicador(editQuantidade, editUnidade, item.pesoUnidade)
   const previewCalorias = Math.round(baseCalorias * editMultiplier)
   const previewProteinas = Number((baseProteinas * editMultiplier).toFixed(1))
   const previewCarboidratos = Number((baseCarboidratos * editMultiplier).toFixed(1))

@@ -14,6 +14,7 @@ interface CreateFoodModalProps {
     proteinas: number
     carboidratos: number
     gorduras: number
+    pesoUnidade?: number | null
   }) => void
 }
 
@@ -24,6 +25,8 @@ export function CreateFoodModal({ isOpen, onClose, onCreated }: CreateFoodModalP
   const [proteinas, setProteinas] = useState("")
   const [carboidratos, setCarboidratos] = useState("")
   const [gorduras, setGorduras] = useState("")
+  const [vendidoPorUnidade, setVendidoPorUnidade] = useState(false)
+  const [pesoUnidade, setPesoUnidade] = useState("")
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
 
@@ -46,6 +49,8 @@ export function CreateFoodModal({ isOpen, onClose, onCreated }: CreateFoodModalP
     setProteinas("")
     setCarboidratos("")
     setGorduras("")
+    setVendidoPorUnidade(false)
+    setPesoUnidade("")
   }
 
   if (!isOpen) return null
@@ -67,6 +72,7 @@ export function CreateFoodModal({ isOpen, onClose, onCreated }: CreateFoodModalP
         proteinas: normalized.proteinas,
         carboidratos: normalized.carboidratos,
         gorduras: normalized.gorduras,
+        pesoUnidade: vendidoPorUnidade && Number(pesoUnidade) > 0 ? Number(pesoUnidade) : undefined,
       })
       onCreated(alimento)
       resetForm()
@@ -90,6 +96,7 @@ export function CreateFoodModal({ isOpen, onClose, onCreated }: CreateFoodModalP
       proteinas: normalized.proteinas,
       carboidratos: normalized.carboidratos,
       gorduras: normalized.gorduras,
+      pesoUnidade: vendidoPorUnidade && Number(pesoUnidade) > 0 ? Number(pesoUnidade) : undefined,
     })
     resetForm()
     onClose()
@@ -167,6 +174,30 @@ export function CreateFoodModal({ isOpen, onClose, onCreated }: CreateFoodModalP
                   focus:ring-2 focus:ring-primary/50 transition-all"
               />
             </div>
+          </div>
+
+          {/* Peso por unidade section */}
+          <div className="flex flex-col gap-1.5">
+            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={vendidoPorUnidade}
+                onChange={(e) => setVendidoPorUnidade(e.target.checked)}
+                className="w-4 h-4 rounded accent-primary cursor-pointer"
+              />
+              Vendido por unidade (ex: bombom, pão)
+            </label>
+            {vendidoPorUnidade && (
+              <input
+                type="number"
+                placeholder="Peso de 1 unidade (g)"
+                value={pesoUnidade}
+                onChange={(e) => setPesoUnidade(e.target.value)}
+                className="w-full h-12 px-4 rounded-xl bg-slate-100 text-slate-900
+                  border-none outline-none placeholder:text-slate-400
+                  focus:ring-2 focus:ring-primary/50 transition-all"
+              />
+            )}
           </div>
 
           {/* Nutritional info section */}

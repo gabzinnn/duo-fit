@@ -3,6 +3,7 @@
 import prisma from "@/lib/prisma"
 import { TipoRefeicao } from "@/generated/prisma/client"
 import { revalidatePath } from "next/cache"
+import { calcularMultiplicador } from "@/utils/calcular-multiplicador"
 
 // =========================
 // TYPES
@@ -14,6 +15,7 @@ export interface NovoAlimentoInput {
     proteinas: number
     carboidratos: number
     gorduras: number
+    pesoUnidade?: number
 }
 
 export interface ItemRefeicaoInput {
@@ -40,6 +42,7 @@ export async function criarAlimento(data: NovoAlimentoInput) {
             proteinas: data.proteinas,
             carboidratos: data.carboidratos,
             gorduras: data.gorduras,
+            pesoUnidade: data.pesoUnidade,
         },
     })
 
@@ -50,7 +53,19 @@ export async function criarAlimento(data: NovoAlimentoInput) {
         proteinas: alimento.proteinas,
         carboidratos: alimento.carboidratos,
         gorduras: alimento.gorduras,
+        pesoUnidade: alimento.pesoUnidade,
     }
+}
+
+// =========================
+// ATUALIZAR PESO DA UNIDADE
+// =========================
+
+export async function atualizarPesoUnidade(alimentoId: number, pesoUnidade: number) {
+    await prisma.alimento.update({
+        where: { id: alimentoId },
+        data: { pesoUnidade },
+    })
 }
 
 // =========================
@@ -118,9 +133,6 @@ export async function salvarRefeicao(
 
     const alimentoMap = new Map(alimentos.map((a) => [a.id, a]))
 
-    // Helper to check if unit uses weight-based calculation
-    const isWeightUnit = (unit: string) => unit === "g" || unit === "ml"
-
     // Calculate totals
     let totalCalorias = 0
     let totalProteinas = 0
@@ -131,10 +143,7 @@ export async function salvarRefeicao(
         const alimento = alimentoMap.get(item.alimentoId)
         if (!alimento) throw new Error(`Alimento ${item.alimentoId} não encontrado`)
 
-        // Calculate based on quantity and unit type
-        // For g/ml: 100g = base values, so multiply by (qty / 100)
-        // For other units (porção, un, etc): 1 unit = base values (100g worth), so multiply by qty
-        const multiplier = isWeightUnit(item.unidade) ? item.quantidade / 100 : item.quantidade
+        const multiplier = calcularMultiplicador(item.quantidade, item.unidade, alimento.pesoUnidade)
         const calorias = alimento.calorias * multiplier
         const proteinas = alimento.proteinas * multiplier
         const carboidratos = alimento.carboidratos * multiplier

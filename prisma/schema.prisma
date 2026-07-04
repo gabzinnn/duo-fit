@@ -130,6 +130,7 @@ model Alimento {
   proteinas    Float    @default(0) // Proteínas por 100g
   carboidratos Float    @default(0) // Carboidratos por 100g
   gorduras     Float    @default(0) // Gorduras por 100g
+  pesoUnidade  Float? // Peso de 1 unidade em gramas (ex: 1 bombom = 20g)
   icone        String? // Nome do ícone Material (ex: "egg_alt")
   criadoEm     DateTime @default(now())
 
