@@ -23,9 +23,15 @@ export function FoodSearchInput({ usuarioId, onSelect, onCreateClick }: FoodSear
   const [editandoPeso, setEditandoPeso] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const resultsRef = useRef<HTMLDivElement>(null)
+  const skipNextSearch = useRef(false)
 
   // Debounced search
   useEffect(() => {
+    if (skipNextSearch.current) {
+      skipNextSearch.current = false
+      return
+    }
+
     if (query.length < 2) {
       setResults([])
       return
@@ -59,6 +65,7 @@ export function FoodSearchInput({ usuarioId, onSelect, onCreateClick }: FoodSear
   }, [])
 
   const handleSelectFood = (alimento: AlimentoNormalizado) => {
+    skipNextSearch.current = true
     setSelectedFood(alimento)
     setQuery(alimento.nome)
     setShowResults(false)
