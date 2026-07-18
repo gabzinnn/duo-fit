@@ -23,6 +23,7 @@ export function FoodSearchInput({ usuarioId, onSelect, onCreateClick }: FoodSear
   const [editandoPeso, setEditandoPeso] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const resultsRef = useRef<HTMLDivElement>(null)
+  const quantidadeInputRef = useRef<HTMLInputElement>(null)
   const skipNextSearch = useRef(false)
 
   // Debounced search
@@ -71,6 +72,7 @@ export function FoodSearchInput({ usuarioId, onSelect, onCreateClick }: FoodSear
     setShowResults(false)
     setPesoUnidadeInput("")
     setEditandoPeso(false)
+    requestAnimationFrame(() => quantidadeInputRef.current?.select())
   }
 
   const handleSalvarEdicaoPeso = () => {
@@ -197,6 +199,7 @@ export function FoodSearchInput({ usuarioId, onSelect, onCreateClick }: FoodSear
             </label>
             <div className="flex items-center">
               <input
+                ref={quantidadeInputRef}
                 type="number"
                 value={quantidade}
                 onChange={(e) => setQuantidade(Number(e.target.value))}
