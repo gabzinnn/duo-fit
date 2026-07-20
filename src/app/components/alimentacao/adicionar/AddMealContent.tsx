@@ -7,7 +7,7 @@ import { useAuth } from "@/context/AuthContext"
 import { useDate } from "@/context/DateContext"
 import { TipoRefeicao } from "@/generated/prisma/client"
 import type { AlimentoNormalizado } from "@/utils/normalizar-alimento"
-import { salvarRefeicao } from "@/app/actions/refeicao"
+import { salvarRefeicao, salvarAlimentoAnalisado } from "@/app/actions/refeicao"
 import { calcularMultiplicador } from "@/utils/calcular-multiplicador"
 import { getAlimentacaoData } from "@/app/actions/alimentacao"
 
@@ -16,7 +16,7 @@ import { FoodSearchInput } from "./FoodSearchInput"
 import { StagedFoodList } from "./StagedFoodList"
 import { MealSummaryCard } from "./MealSummaryCard"
 import { CreateFoodModal } from "./CreateFoodModal"
-import { PhotoAnalyzer } from "./PhotoAnalyzer"
+import { AiAnalyzer } from "./AiAnalyzer"
 import type { StagedItem } from "./StagedFoodItem"
 import type { AlimentoAnalisado } from "@/app/actions/analisar-foto"
 
@@ -106,19 +106,51 @@ export function AddMealContent() {
     setStagedItems((prev) => [...prev, newItem])
   }
 
-  const handleFoodsFromPhoto = (foods: AlimentoAnalisado[]) => {
-    const newItems: StagedItem[] = foods.map((food) => ({
-      id: `${Date.now()}-${Math.random()}-${food.nome}`,
-      alimentoId: food.alimentoId ?? -Date.now(), // Use DB ID if available
-      nome: food.nome,
-      quantidade: food.quantidade,
-      unidade: food.unidade,
-      calorias: food.calorias,
-      proteinas: food.proteinas,
-      carboidratos: food.carboidratos,
-      gorduras: food.gorduras,
-      isPreCalculated: true, // Values are already calculated for the quantity
-    }))
+  const handleFoodsFromIA = async (foods: AlimentoAnalisado[]) => {
+    const newItems: StagedItem[] = await Promise.all(
+      foods.map(async (food, i) => {
+        const baseId = `${Date.now()}-${Math.random()}-${i}-${food.nome}`
+
+        // "Salvar no banco": cria alimento reutilizável (base 100g) e usa seu ID/valores
+        if (food.salvarNoBanco) {
+          const saved = await salvarAlimentoAnalisado({
+            nome: food.nome,
+            quantidade: food.quantidade,
+            calorias: food.calorias,
+            proteinas: food.proteinas,
+            carboidratos: food.carboidratos,
+            gorduras: food.gorduras,
+          })
+          return {
+            id: baseId,
+            alimentoId: saved.id,
+            nome: saved.nome,
+            quantidade: food.quantidade,
+            unidade: food.unidade,
+            calorias: saved.calorias, // valores base (por 100g)
+            proteinas: saved.proteinas,
+            carboidratos: saved.carboidratos,
+            gorduras: saved.gorduras,
+            pesoUnidade: saved.pesoUnidade,
+            isPreCalculated: false,
+          }
+        }
+
+        // Sem salvar: comportamento atual (valores totais já calculados)
+        return {
+          id: baseId,
+          alimentoId: food.alimentoId ?? -Date.now() - i,
+          nome: food.nome,
+          quantidade: food.quantidade,
+          unidade: food.unidade,
+          calorias: food.calorias,
+          proteinas: food.proteinas,
+          carboidratos: food.carboidratos,
+          gorduras: food.gorduras,
+          isPreCalculated: true,
+        }
+      })
+    )
     setStagedItems((prev) => [...prev, ...newItems])
   }
 
@@ -219,7 +251,7 @@ export function AddMealContent() {
             {/* Left Column - Input */}
             <div className="lg:col-span-7 flex flex-col gap-6">
               <MealTypeSelector selected={mealType} onChange={setMealType} />
-              <PhotoAnalyzer onFoodsDetected={handleFoodsFromPhoto} />
+              <AiAnalyzer onFoodsConfirmed={handleFoodsFromIA} />
               {usuario?.id && (
                 <FoodSearchInput
                   usuarioId={usuario.id}

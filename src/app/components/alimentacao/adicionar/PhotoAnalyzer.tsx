@@ -95,17 +95,7 @@ export function PhotoAnalyzer({ onFoodsDetected }: PhotoAnalyzerProps) {
   }
 
   return (
-    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="w-10 h-10 rounded-full bg-linear-to-br from-violet-500 to-purple-600 flex items-center justify-center">
-          <span className="material-symbols-outlined text-white">photo_camera</span>
-        </div>
-        <div>
-          <h3 className="font-bold text-slate-900">Análise por Foto</h3>
-          <p className="text-xs text-slate-500">Tire uma foto do prato para identificar os alimentos</p>
-        </div>
-      </div>
-
+    <>
       <input
         ref={fileInputRef}
         type="file"
@@ -160,10 +150,6 @@ export function PhotoAnalyzer({ onFoodsDetected }: PhotoAnalyzerProps) {
           {error}
         </div>
       )}
-
-      <p className="text-xs text-slate-400 mt-3 text-center">
-        Powered by Google Gemini AI 🤖
-      </p>
-    </div>
+    </>
   )
 }

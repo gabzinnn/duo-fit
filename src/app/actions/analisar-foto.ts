@@ -1,6 +1,7 @@
 "use server"
 
 import { GoogleGenerativeAI } from "@google/generative-ai"
+import { parseAlimentosResponse } from "@/utils/parse-alimentos"
 
 export interface AlimentoAnalisado {
     alimentoId?: number
@@ -11,6 +12,7 @@ export interface AlimentoAnalisado {
     proteinas: number
     carboidratos: number
     gorduras: number
+    salvarNoBanco?: boolean // Quando true, vira alimento reutilizável no catálogo
 }
 
 export interface AnaliseResult {
@@ -85,18 +87,12 @@ Retorne APENAS JSON válido (sem markdown):
         const response = await result.response
         const text = response.text()
 
-        // Strip possible markdown blocks
-        let jsonText = text.trim()
-        if (jsonText.startsWith("```json")) jsonText = jsonText.slice(7)
-        if (jsonText.startsWith("```")) jsonText = jsonText.slice(3)
-        if (jsonText.endsWith("```")) jsonText = jsonText.slice(0, -3)
-
-        const parsed = JSON.parse(jsonText.trim())
-        console.log("Resposta Gemini:", parsed)
+        const alimentos = parseAlimentosResponse(text)
+        console.log("Resposta Gemini:", alimentos)
 
         return {
             success: true,
-            alimentos: parsed.alimentos || []
+            alimentos
         }
     } catch (error) {
         console.error("Erro ao analisar foto:", error)

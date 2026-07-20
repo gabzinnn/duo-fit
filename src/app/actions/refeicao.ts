@@ -58,6 +58,44 @@ export async function criarAlimento(data: NovoAlimentoInput) {
 }
 
 // =========================
+// SALVAR ALIMENTO DA ANÁLISE (IA) NO CATÁLOGO
+// =========================
+
+// Recebe os valores TOTAIS estimados para a quantidade e normaliza para base 100g,
+// fazendo upsert por nome (dedupe, evita erro de nome duplicado nos alimentos comuns).
+export async function salvarAlimentoAnalisado(food: {
+    nome: string
+    quantidade: number
+    calorias: number
+    proteinas: number
+    carboidratos: number
+    gorduras: number
+}) {
+    const fator = food.quantidade > 0 ? 100 / food.quantidade : 0
+    const alimento = await prisma.alimento.upsert({
+        where: { nome: food.nome },
+        update: {}, // Não sobrescreve alimento existente
+        create: {
+            nome: food.nome,
+            calorias: Math.round(food.calorias * fator),
+            proteinas: Number((food.proteinas * fator).toFixed(1)),
+            carboidratos: Number((food.carboidratos * fator).toFixed(1)),
+            gorduras: Number((food.gorduras * fator).toFixed(1)),
+        },
+    })
+
+    return {
+        id: alimento.id,
+        nome: alimento.nome,
+        calorias: alimento.calorias,
+        proteinas: alimento.proteinas,
+        carboidratos: alimento.carboidratos,
+        gorduras: alimento.gorduras,
+        pesoUnidade: alimento.pesoUnidade,
+    }
+}
+
+// =========================
 // ATUALIZAR PESO DA UNIDADE
 // =========================
 

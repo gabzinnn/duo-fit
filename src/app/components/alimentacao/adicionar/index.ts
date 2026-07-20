@@ -6,4 +6,7 @@ export { StagedFoodList } from "./StagedFoodList"
 export { MealSummaryCard } from "./MealSummaryCard"
 export { CreateFoodModal } from "./CreateFoodModal"
 export { PhotoAnalyzer } from "./PhotoAnalyzer"
+export { PromptAnalyzer } from "./PromptAnalyzer"
+export { AiAnalyzer } from "./AiAnalyzer"
+export { AiFoodReviewModal } from "./AiFoodReviewModal"
 
