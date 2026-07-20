@@ -15,8 +15,8 @@ async function gerarComFallback(parts: Parts) {
     } catch (error) {
         const msg = error instanceof Error ? error.message : String(error)
         if (!/503|overload|unavailable|high demand/i.test(msg)) throw error
-        console.warn("gemini-3.5-flash indisponível, usando gemini-2.5-flash:", msg)
-        return await genAI.getGenerativeModel({ model: "gemini-2.5-flash" }).generateContent(parts)
+        console.warn("gemini-3.5-flash indisponível, usando gemini-3-flash:", msg)
+        return await genAI.getGenerativeModel({ model: "gemini-3-flash" }).generateContent(parts)
     }
 }
 
