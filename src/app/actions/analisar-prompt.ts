@@ -6,6 +6,20 @@ import type { AnaliseResult } from "./analisar-foto"
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "")
 
+type Parts = (string | { inlineData: { mimeType: string; data: string } })[]
+
+// Tenta o flash (rápido/barato); se estiver sobrecarregado (503) cai para o pro (mais potente).
+async function gerarComFallback(parts: Parts) {
+    try {
+        return await genAI.getGenerativeModel({ model: "gemini-3.5-flash" }).generateContent(parts)
+    } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error)
+        if (!/503|overload|unavailable|high demand/i.test(msg)) throw error
+        console.warn("gemini-3.5-flash indisponível, usando gemini-2.5-flash:", msg)
+        return await genAI.getGenerativeModel({ model: "gemini-2.5-flash" }).generateContent(parts)
+    }
+}
+
 const PROMPT = `Você é um nutricionista expert. O usuário vai descrever (por texto ou fala) uma refeição que comeu.
 
 TAREFA: A partir da descrição, identifique CADA alimento mencionado e forneça informações nutricionais precisas. Se for áudio, transcreva mentalmente e analise.
@@ -68,8 +82,6 @@ export async function analisarPromptRefeicao(input: {
     }
 
     try {
-        const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" })
-
         const parts: (string | { inlineData: { mimeType: string; data: string } })[] = [PROMPT]
 
         if (input.audioBase64) {
@@ -82,7 +94,7 @@ export async function analisarPromptRefeicao(input: {
             parts.push(`Refeição do usuário: ${input.texto!.trim()}`)
         }
 
-        const result = await model.generateContent(parts)
+        const result = await gerarComFallback(parts)
         const response = await result.response
         const text = response.text()
 
