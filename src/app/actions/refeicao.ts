@@ -114,7 +114,10 @@ export async function salvarRefeicao(
     usuarioId: number,
     tipo: TipoRefeicao,
     itens: ItemRefeicaoInput[],
-    dateKey?: string // Optional: YYYY-MM-DD format, defaults to today
+    dateKey?: string, // Optional: YYYY-MM-DD format, defaults to today
+    nome?: string, // Nome livre, usado quando tipo = OUTRO
+    icone?: string, // Nome do ícone Lucide, usado quando tipo = OUTRO
+    refeicaoId?: number // Se informado, anexa os itens a essa refeição existente em vez de criar uma nova
 ) {
     if (itens.length === 0) {
         throw new Error("Adicione pelo menos um alimento")
@@ -221,23 +224,42 @@ export async function salvarRefeicao(
     // Format: YYYY-MM-DDTHH:mm:ss-03:00
     const mealDateTime = new Date(`${targetDateKey}T${nowBrazilTime}-03:00`)
 
-    const refeicao = await prisma.refeicao.create({
-        data: {
-            usuarioId,
-            tipo,
-            data: mealDateTime,
-            totalCalorias,
-            totalProteinas,
-            totalCarbos,
-            totalGorduras,
-            alimentos: {
-                create: alimentosRefeicao,
+    const refeicao = refeicaoId
+        ? await prisma.refeicao.update({
+            where: { id: refeicaoId },
+            data: {
+                totalCalorias: { increment: totalCalorias },
+                totalProteinas: { increment: totalProteinas },
+                totalCarbos: { increment: totalCarbos },
+                totalGorduras: { increment: totalGorduras },
+                data: mealDateTime, // Atualiza o horário para refletir o último item adicionado
+                alimentos: {
+                    create: alimentosRefeicao,
+                },
             },
-        },
-        include: {
-            alimentos: true,
-        },
-    })
+            include: {
+                alimentos: true,
+            },
+        })
+        : await prisma.refeicao.create({
+            data: {
+                usuarioId,
+                tipo,
+                nome: tipo === "OUTRO" ? nome : undefined,
+                icone: tipo === "OUTRO" ? icone : undefined,
+                data: mealDateTime,
+                totalCalorias,
+                totalProteinas,
+                totalCarbos,
+                totalGorduras,
+                alimentos: {
+                    create: alimentosRefeicao,
+                },
+            },
+            include: {
+                alimentos: true,
+            },
+        })
 
     // Update daily calories using the target date (UTC midnight for @db.Date)
     const hoje = new Date(targetDateKey + "T00:00:00.000Z") // UTC midnight for @db.Date

@@ -19,6 +19,8 @@ export interface AlimentoItem {
 export interface RefeicaoData {
     id: number
     tipo: TipoRefeicao
+    nome?: string | null
+    icone?: string | null
     horario: string
     totalCalorias: number
     alimentos: AlimentoItem[]
@@ -44,6 +46,7 @@ export interface AlimentacaoData {
     metaCalorias: number
     macros: MacrosData
     refeicoes: RefeicaoData[]
+    refeicoesExtras: RefeicaoData[]
     historicoSemanal: DiaHistorico[]
     rivalNome: string
     rivalCalorias: number
@@ -82,6 +85,7 @@ export async function getAlimentacaoData(usuarioId: number | null, dateKey?: str
                 totalCalorias: 0,
                 alimentos: [],
             })),
+            refeicoesExtras: [],
             historicoSemanal: [],
             rivalNome: "Rival",
             rivalCalorias: 0,
@@ -141,6 +145,8 @@ export async function getAlimentacaoData(usuarioId: number | null, dateKey?: str
     const refeicoesData: RefeicaoData[] = refeicoes.map((r) => ({
         id: r.id,
         tipo: r.tipo,
+        nome: r.nome,
+        icone: r.icone,
         horario: r.data.toLocaleTimeString("pt-BR", {
             hour: "2-digit",
             minute: "2-digit",
@@ -185,6 +191,25 @@ export async function getAlimentacaoData(usuarioId: number | null, dateKey?: str
             alimentos,
         }
     })
+
+    // Custom/extra meals (tipo = OUTRO) - combine multiple meals with the same nome (same pattern as the 4 fixed types)
+    const extrasPorNome = new Map<string, RefeicaoData[]>()
+    for (const r of refeicoesData) {
+        if (r.tipo !== "OUTRO") continue
+        const chave = r.nome || ""
+        const grupo = extrasPorNome.get(chave) ?? []
+        grupo.push(r)
+        extrasPorNome.set(chave, grupo)
+    }
+    const refeicoesExtras: RefeicaoData[] = Array.from(extrasPorNome.values()).map((grupo) => ({
+        id: grupo[0].id,
+        tipo: "OUTRO",
+        nome: grupo[0].nome,
+        icone: grupo[0].icone,
+        horario: grupo[grupo.length - 1].horario,
+        totalCalorias: grupo.reduce((sum, r) => sum + r.totalCalorias, 0),
+        alimentos: grupo.flatMap((r) => r.alimentos),
+    }))
 
     // Weekly history - 7 days centered on today (3 before, today, 3 after)
     const historicoSemanal: DiaHistorico[] = []
@@ -269,11 +294,45 @@ export async function getAlimentacaoData(usuarioId: number | null, dateKey?: str
         metaCalorias,
         macros,
         refeicoes: refeicoesCompletas,
+        refeicoesExtras,
         historicoSemanal,
         rivalNome: rival?.nome ?? "Rival",
         rivalCalorias: rivalCalorias?.caloriasIngeridas ?? 0,
         usuarioCor: usuario?.cor ?? "AMARELO",
         rivalCor: rival?.cor ?? "ROXO",
+    }
+}
+
+// =========================
+// BUSCAR REFEIÇÃO PARA EDITAR (pré-preencher ao adicionar mais itens)
+// =========================
+
+export async function getRefeicaoParaEditar(refeicaoId: number) {
+    noStore()
+
+    const refeicao = await prisma.refeicao.findUnique({
+        where: { id: refeicaoId },
+        include: { alimentos: { include: { alimento: true } } },
+    })
+
+    if (!refeicao) return null
+
+    return {
+        id: refeicao.id,
+        tipo: refeicao.tipo,
+        nome: refeicao.nome,
+        icone: refeicao.icone,
+        totalCalorias: refeicao.totalCalorias,
+        totalProteinas: refeicao.totalProteinas,
+        totalCarbos: refeicao.totalCarbos,
+        totalGorduras: refeicao.totalGorduras,
+        alimentos: refeicao.alimentos.map((ar) => ({
+            id: ar.id,
+            nome: ar.alimento.nome,
+            quantidade: ar.quantidade,
+            unidade: ar.unidade,
+            calorias: ar.calorias,
+        })),
     }
 }
 
@@ -295,6 +354,8 @@ export interface AlimentoHistorico {
 export interface RefeicaoHistorico {
     id: number
     tipo: TipoRefeicao
+    nome?: string | null
+    icone?: string | null
     data: Date
     totalCalorias: number
     totalProteinas: number
@@ -334,6 +395,8 @@ export async function getHistoricoRefeicoes(): Promise<RefeicaoHistorico[]> {
     return refeicoes.map((r) => ({
         id: r.id,
         tipo: r.tipo,
+        nome: r.nome,
+        icone: r.icone,
         data: r.data,
         totalCalorias: r.totalCalorias,
         totalProteinas: r.totalProteinas,

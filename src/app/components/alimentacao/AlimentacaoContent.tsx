@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { useAuth } from "@/context/AuthContext"
 import { useDate } from "@/context/DateContext"
 import { AlimentacaoHeader } from "./AlimentacaoHeader"
@@ -26,6 +27,7 @@ const defaultData: AlimentacaoData = {
     totalCalorias: 0,
     alimentos: [],
   })),
+  refeicoesExtras: [],
   historicoSemanal: [],
   rivalNome: "Rival",
   rivalCalorias: 0,
@@ -141,6 +143,35 @@ export function AlimentacaoContent() {
                   onDataChange={triggerRefresh}
                 />
               ))}
+            </div>
+          </div>
+
+          {/* Extra Meals Section */}
+          <div>
+            <h3 className="text-lg lg:text-xl font-bold text-slate-900 mb-4 px-1">
+              Outras refeições
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {data.refeicoesExtras.map((refeicao) => (
+                <MealCard
+                  key={refeicao.id}
+                  refeicaoId={refeicao.id}
+                  tipo={refeicao.tipo}
+                  nome={refeicao.nome}
+                  icone={refeicao.icone}
+                  horario={refeicao.horario}
+                  totalCalorias={refeicao.totalCalorias}
+                  alimentos={refeicao.alimentos}
+                  onDataChange={triggerRefresh}
+                />
+              ))}
+              <Link
+                href="/alimentacao/adicionar?tipo=OUTRO"
+                className="flex items-center justify-center h-24 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 hover:border-primary hover:text-primary transition-colors cursor-pointer gap-2"
+              >
+                <span className="material-symbols-outlined">add_circle</span>
+                <span className="text-sm font-medium">Adicionar outra refeição</span>
+              </Link>
             </div>
           </div>
         </div>

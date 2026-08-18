@@ -3,23 +3,29 @@ import { calcularMultiplicador } from "@/utils/calcular-multiplicador"
 
 interface MealSummaryCardProps {
   items: StagedItem[]
+  existingTotals?: { calorias: number; proteinas: number; carboidratos: number; gorduras: number }
   metaCalorias: number
   caloriasConsumidasHoje: number
   onSave: () => void
   onCancel: () => void
   saving: boolean
+  disabled?: boolean
 }
+
+const SEM_TOTAIS_EXISTENTES = { calorias: 0, proteinas: 0, carboidratos: 0, gorduras: 0 }
 
 export function MealSummaryCard({
   items,
+  existingTotals = SEM_TOTAIS_EXISTENTES,
   metaCalorias,
   caloriasConsumidasHoje,
   onSave,
   onCancel,
   saving,
+  disabled,
 }: MealSummaryCardProps) {
   // Calculate totals from items (respect isPreCalculated flag and unit type)
-  const totals = items.reduce(
+  const novosTotais = items.reduce(
     (acc, item) => {
       const multiplier = item.isPreCalculated ? 1 : calcularMultiplicador(item.quantidade, item.unidade, item.pesoUnidade)
       return {
@@ -32,10 +38,19 @@ export function MealSummaryCard({
     { calorias: 0, proteinas: 0, carboidratos: 0, gorduras: 0 }
   )
 
+  // Totals shown in the ring/macros reflect the whole meal (already-saved + new)
+  const totals = {
+    calorias: existingTotals.calorias + novosTotais.calorias,
+    proteinas: existingTotals.proteinas + novosTotais.proteinas,
+    carboidratos: existingTotals.carboidratos + novosTotais.carboidratos,
+    gorduras: existingTotals.gorduras + novosTotais.gorduras,
+  }
+
   const caloriasRefeicao = Math.round(totals.calorias)
-  const novoTotal = caloriasConsumidasHoje + caloriasRefeicao
+  // Daily goal only moves by the NEW items — the existing ones are already counted in caloriasConsumidasHoje
+  const novoTotal = caloriasConsumidasHoje + novosTotais.calorias
   const percentMeta = Math.round((novoTotal / metaCalorias) * 100)
-  const percentRefeicao = Math.round((caloriasRefeicao / metaCalorias) * 100)
+  const percentRefeicao = Math.round((novosTotais.calorias / metaCalorias) * 100)
   const progressAtual = Math.min((caloriasConsumidasHoje / metaCalorias) * 100, 100)
   const progressNovo = Math.min((novoTotal / metaCalorias) * 100, 100)
 
@@ -120,7 +135,7 @@ export function MealSummaryCard({
             style={{ width: `${progressNovo}%` }}
           />
         </div>
-        {caloriasRefeicao > 0 && (
+        {novosTotais.calorias > 0 && (
           <p className="text-xs text-center text-slate-500">
             Essa refeição adiciona{" "}
             <span className="font-bold text-primary">+{percentRefeicao}%</span> à
@@ -134,7 +149,7 @@ export function MealSummaryCard({
         <button
           type="button"
           onClick={onSave}
-          disabled={items.length === 0 || saving}
+          disabled={items.length === 0 || saving || disabled}
           className="flex-1 py-4 px-6 bg-primary hover:bg-blue-600 text-white rounded-xl 
             font-bold text-lg shadow-lg shadow-blue-500/30 transition-all 
             transform hover:-translate-y-0.5 active:translate-y-0

@@ -6,10 +6,13 @@ import { useRouter } from "next/navigation"
 import { TipoRefeicao } from "@/generated/prisma/client"
 import type { AlimentoItem } from "@/app/actions/alimentacao"
 import { excluirRefeicao, excluirAlimentoRefeicao, editarQuantidadeAlimento } from "@/app/actions/editar-refeicao-historico"
+import { MEAL_ICONS } from "@/app/components/alimentacao/mealIcons"
 
 interface MealCardProps {
   refeicaoId: number
   tipo: TipoRefeicao
+  nome?: string | null
+  icone?: string | null
   horario: string
   totalCalorias: number
   alimentos: AlimentoItem[]
@@ -46,11 +49,19 @@ const TIPO_CONFIG: Record<TipoRefeicao, {
     bgColor: "bg-blue-100",
     textColor: "text-blue-600",
   },
+  OUTRO: {
+    label: "Outra refeição",
+    icon: "restaurant_menu",
+    bgColor: "bg-slate-100",
+    textColor: "text-slate-600",
+  },
 }
 
 export function MealCard({
   refeicaoId,
   tipo,
+  nome,
+  icone,
   horario,
   totalCalorias,
   alimentos,
@@ -59,6 +70,11 @@ export function MealCard({
   const router = useRouter()
   const config = TIPO_CONFIG[tipo]
   const temAlimentos = alimentos.length > 0
+  const titulo = nome || config.label
+  const LucideIcon = icone ? MEAL_ICONS[icone] : undefined
+  const addHref = refeicaoId > 0
+    ? `/alimentacao/adicionar?tipo=${tipo}&refeicaoId=${refeicaoId}`
+    : `/alimentacao/adicionar?tipo=${tipo}`
 
   const [isPending, startTransition] = useTransition()
   const [showDeleteMealModal, setShowDeleteMealModal] = useState(false)
@@ -108,7 +124,7 @@ export function MealCard({
               </div>
               <div>
                 <h3 className="font-bold text-slate-900">Excluir refeição</h3>
-                <p className="text-sm text-slate-500">{config.label}</p>
+                <p className="text-sm text-slate-500">{titulo}</p>
               </div>
             </div>
             <p className="text-slate-700 mb-4">
@@ -233,10 +249,14 @@ export function MealCard({
                 ${config.bgColor} ${config.textColor}
               `}
             >
-              <span className="material-symbols-outlined">{config.icon}</span>
+              {LucideIcon ? (
+                <LucideIcon size={20} />
+              ) : (
+                <span className="material-symbols-outlined">{config.icon}</span>
+              )}
             </div>
             <div>
-              <h4 className="font-bold text-slate-900">{config.label}</h4>
+              <h4 className="font-bold text-slate-900">{titulo}</h4>
               <p className="text-xs text-slate-500">
                 {temAlimentos
                   ? `${horario} • ${Math.round(totalCalorias)} kcal`
@@ -256,7 +276,7 @@ export function MealCard({
               </button>
             )}
             <Link
-              href={`/alimentacao/adicionar?tipo=${tipo}`}
+              href={addHref}
               className={`
                 w-10 h-10 flex items-center justify-center rounded-full transition-colors cursor-pointer
                 ${temAlimentos

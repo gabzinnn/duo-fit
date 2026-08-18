@@ -30,6 +30,7 @@ enum TipoRefeicao {
   ALMOCO
   JANTAR
   LANCHE
+  OUTRO
 }
 
 // ==========================
@@ -145,6 +146,8 @@ model Refeicao {
   id             Int          @id @default(autoincrement())
   usuarioId      Int
   tipo           TipoRefeicao
+  nome           String? // Nome livre, usado quando tipo = OUTRO (ex: "Ceia")
+  icone          String? // Nome do ícone Lucide, usado quando tipo = OUTRO
   data           DateTime // Data e hora da refeição
   totalCalorias  Float        @default(0) // Calorias totais (calculado)
   totalProteinas Float        @default(0)

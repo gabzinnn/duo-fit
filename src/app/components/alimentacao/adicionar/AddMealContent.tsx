@@ -9,9 +9,11 @@ import { TipoRefeicao } from "@/generated/prisma/client"
 import type { AlimentoNormalizado } from "@/utils/normalizar-alimento"
 import { salvarRefeicao, salvarAlimentoAnalisado } from "@/app/actions/refeicao"
 import { calcularMultiplicador } from "@/utils/calcular-multiplicador"
-import { getAlimentacaoData } from "@/app/actions/alimentacao"
+import { getAlimentacaoData, getRefeicaoParaEditar } from "@/app/actions/alimentacao"
 
 import { MealTypeSelector } from "./MealTypeSelector"
+import { MealIconPicker } from "./MealIconPicker"
+import { DEFAULT_MEAL_ICON } from "@/app/components/alimentacao/mealIcons"
 import { FoodSearchInput } from "./FoodSearchInput"
 import { StagedFoodList } from "./StagedFoodList"
 import { MealSummaryCard } from "./MealSummaryCard"
@@ -32,6 +34,13 @@ export function AddMealContent() {
     tipoParam || "ALMOCO"
   )
 
+  // If arriving from an existing "Outra" meal card, pre-fill its name/icon/itens
+  const refeicaoIdParam = searchParams.get("refeicaoId")
+  const refeicaoId = refeicaoIdParam ? Number(refeicaoIdParam) : undefined
+  const [mealNome, setMealNome] = useState("")
+  const [mealIcone, setMealIcone] = useState(DEFAULT_MEAL_ICON)
+  const [existingItems, setExistingItems] = useState<{ id: number; nome: string; quantidade: number; unidade: string; calorias: number }[]>([])
+  const [existingTotals, setExistingTotals] = useState({ calorias: 0, proteinas: 0, carboidratos: 0, gorduras: 0 })
   const [stagedItems, setStagedItems] = useState<StagedItem[]>([])
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -49,6 +58,25 @@ export function AddMealContent() {
     }
     fetchData()
   }, [usuario?.id, selectedDateKey])
+
+  // Pre-fill name/icon/existing itens when adding more to an existing meal
+  useEffect(() => {
+    async function fetchRefeicao() {
+      if (!refeicaoId) return
+      const refeicao = await getRefeicaoParaEditar(refeicaoId)
+      if (!refeicao) return
+      setMealNome(refeicao.nome || "")
+      setMealIcone(refeicao.icone || DEFAULT_MEAL_ICON)
+      setExistingItems(refeicao.alimentos)
+      setExistingTotals({
+        calorias: refeicao.totalCalorias,
+        proteinas: refeicao.totalProteinas,
+        carboidratos: refeicao.totalCarbos,
+        gorduras: refeicao.totalGorduras,
+      })
+    }
+    fetchRefeicao()
+  }, [refeicaoId])
 
   const handleAddFood = (
     alimento: AlimentoNormalizado,
@@ -156,6 +184,7 @@ export function AddMealContent() {
 
   const handleSave = async () => {
     if (!usuario?.id || stagedItems.length === 0) return
+    if (mealType === "OUTRO" && !mealNome.trim()) return
 
     setSaving(true)
     try {
@@ -197,7 +226,10 @@ export function AddMealContent() {
 
           return payload
         }),
-        selectedDateKey // Pass the selected date to save meal on that day
+        selectedDateKey, // Pass the selected date to save meal on that day
+        mealType === "OUTRO" ? mealNome.trim() : undefined,
+        mealType === "OUTRO" ? mealIcone : undefined,
+        refeicaoId
       )
     } catch (error) {
       console.error("Erro ao salvar refeição:", error)
@@ -251,6 +283,52 @@ export function AddMealContent() {
             {/* Left Column - Input */}
             <div className="lg:col-span-7 flex flex-col gap-6">
               <MealTypeSelector selected={mealType} onChange={setMealType} />
+              {mealType === "OUTRO" && (
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Nome da refeição
+                    </label>
+                    <input
+                      type="text"
+                      value={mealNome}
+                      onChange={(e) => setMealNome(e.target.value)}
+                      placeholder="Ex: Ceia"
+                      disabled={!!refeicaoId}
+                      className="w-full px-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-primary focus:border-primary outline-none disabled:bg-slate-100 disabled:text-slate-500"
+                      autoFocus={!refeicaoId}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Ícone
+                    </label>
+                    <MealIconPicker selected={mealIcone} onChange={setMealIcone} />
+                  </div>
+                </div>
+              )}
+              {existingItems.length > 0 && (
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Já registrado nesta refeição
+                  </label>
+                  <div className="space-y-2">
+                    {existingItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex justify-between items-center p-3 bg-slate-50 rounded-xl text-sm"
+                      >
+                        <span className="text-slate-700">
+                          {item.nome} • {item.quantidade} {item.unidade}
+                        </span>
+                        <span className="font-bold text-slate-600">
+                          {Math.round(item.calorias)} kcal
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <AiAnalyzer onFoodsConfirmed={handleFoodsFromIA} />
               {usuario?.id && (
                 <FoodSearchInput
@@ -271,11 +349,13 @@ export function AddMealContent() {
             <div className="lg:col-span-5">
               <MealSummaryCard
                 items={stagedItems}
+                existingTotals={existingTotals}
                 metaCalorias={metaCalorias}
                 caloriasConsumidasHoje={caloriasHoje}
                 onSave={handleSave}
                 onCancel={handleCancel}
                 saving={saving}
+                disabled={mealType === "OUTRO" && !mealNome.trim()}
               />
             </div>
           </div>

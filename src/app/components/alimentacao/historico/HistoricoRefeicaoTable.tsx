@@ -6,6 +6,7 @@ import { marcarDiaInvalido } from "@/app/actions/alimentacao"
 import { excluirRefeicao, excluirAlimentoRefeicao, editarQuantidadeAlimento } from "@/app/actions/editar-refeicao-historico"
 import { TipoRefeicao } from "@/generated/prisma/client"
 import { useAuth } from "@/context/AuthContext"
+import { MEAL_ICONS } from "@/app/components/alimentacao/mealIcons"
 
 interface HistoricoRefeicaoTableProps {
   data: RefeicaoHistorico[]
@@ -18,6 +19,7 @@ const TIPO_CONFIG: Record<TipoRefeicao, { label: string; icon: string; bgColor: 
   ALMOCO: { label: "Almoço", icon: "soup_kitchen", bgColor: "bg-green-100", textColor: "text-green-600" },
   LANCHE: { label: "Lanche", icon: "nutrition", bgColor: "bg-purple-100", textColor: "text-purple-600" },
   JANTAR: { label: "Jantar", icon: "dinner_dining", bgColor: "bg-blue-100", textColor: "text-blue-600" },
+  OUTRO: { label: "Outra refeição", icon: "restaurant_menu", bgColor: "bg-slate-100", textColor: "text-slate-600" },
 }
 
 interface DayGroup {
@@ -90,7 +92,7 @@ export function HistoricoRefeicaoTable({ data, filterText, diasInvalidos }: Hist
   const filteredData = filterText
     ? data.filter(
       (item) =>
-        TIPO_CONFIG[item.tipo].label.toLowerCase().includes(filterText.toLowerCase()) ||
+        (item.nome || TIPO_CONFIG[item.tipo].label).toLowerCase().includes(filterText.toLowerCase()) ||
         item.nomeUsuario.toLowerCase().includes(filterText.toLowerCase()) ||
         item.alimentos.some((a) => a.nome.toLowerCase().includes(filterText.toLowerCase()))
     )
@@ -383,6 +385,8 @@ export function HistoricoRefeicaoTable({ data, filterText, diasInvalidos }: Hist
                 <div className="border-t border-slate-100">
                   {day.refeicoes.map((refeicao) => {
                     const config = TIPO_CONFIG[refeicao.tipo]
+                    const titulo = refeicao.nome || config.label
+                    const LucideIcon = refeicao.icone ? MEAL_ICONS[refeicao.icone] : undefined
                     const isMealExpanded = expandedMeals.has(refeicao.id)
                     const time = new Date(refeicao.data).toLocaleTimeString("pt-BR", {
                       hour: "2-digit",
@@ -399,10 +403,14 @@ export function HistoricoRefeicaoTable({ data, filterText, diasInvalidos }: Hist
                         >
                           <div className="flex items-center gap-3">
                             <div className={`p-2 rounded-lg ${config.bgColor} ${config.textColor}`}>
-                              <span className="material-symbols-outlined text-xl">{config.icon}</span>
+                              {LucideIcon ? (
+                                <LucideIcon size={20} />
+                              ) : (
+                                <span className="material-symbols-outlined text-xl">{config.icon}</span>
+                              )}
                             </div>
                             <div className="text-left">
-                              <p className="font-semibold text-slate-900">{config.label}</p>
+                              <p className="font-semibold text-slate-900">{titulo}</p>
                               <p className="text-xs text-slate-500">{time} • {refeicao.quantidadeAlimentos} alimentos</p>
                             </div>
                           </div>

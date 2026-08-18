@@ -10,12 +10,13 @@ const MEAL_TYPES: { tipo: TipoRefeicao; label: string; icon: string }[] = [
   { tipo: "ALMOCO", label: "Almoço", icon: "restaurant" },
   { tipo: "JANTAR", label: "Jantar", icon: "nights_stay" },
   { tipo: "LANCHE", label: "Lanche", icon: "nutrition" },
+  { tipo: "OUTRO", label: "Outra", icon: "add_circle" },
 ]
 
 export function MealTypeSelector({ selected, onChange }: MealTypeSelectorProps) {
   return (
     <div className="bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
         {MEAL_TYPES.map(({ tipo, label, icon }) => (
           <button
             key={tipo}
