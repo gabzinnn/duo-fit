@@ -1,7 +1,7 @@
 "use client"
 
 import dynamic from "next/dynamic"
-import { useState, useRef, useEffect, useMemo, useCallback } from "react"
+import { useState, useMemo, useCallback } from "react"
 
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false })
 
@@ -98,34 +98,33 @@ export function ScoreChart({
   usuario2Cor,
 }: ScoreChartProps) {
   const [escala, setEscala] = useState<EscalaTempo>("dias")
-  const scrollRef = useRef<HTMLDivElement>(null)
-  
+
   const dadosAgrupados = useMemo(() => agruparPorEscala(data, escala), [data, escala])
-  
+
   const cor1 = usuario1Cor === "AMARELO" ? "#ffb900" : "#9333ea"
   const cor2 = usuario2Cor === "AMARELO" ? "#ffb900" : "#9333ea"
-
-  // Scroll para o final (dados mais recentes) quando muda escala ou dados
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollLeft = scrollRef.current.scrollWidth
-    }
-  }, [escala, dadosAgrupados.length])
 
   const handleEscalaChange = useCallback((novaEscala: EscalaTempo) => {
     setEscala(novaEscala)
   }, [])
 
-  // Calcula largura baseada nos dados
-  const chartWidth = Math.max(400, dadosAgrupados.length * 55)
-  const needsScroll = dadosAgrupados.length > 8
-
   const options: ApexCharts.ApexOptions = useMemo(() => ({
     chart: {
       id: `score-chart-${escala}`,
       type: "line",
-      toolbar: { show: false },
-      zoom: { enabled: false },
+      toolbar: {
+        show: true,
+        tools: {
+          zoom: true,
+          zoomin: true,
+          zoomout: true,
+          pan: true,
+          reset: true,
+          download: false,
+          selection: false,
+        },
+      },
+      zoom: { enabled: true, type: "x", autoScaleYaxis: true },
       fontFamily: "Lexend, sans-serif",
       animations: {
         enabled: true,
@@ -275,30 +274,16 @@ export function ScoreChart({
         ))}
       </div>
 
-      {/* Container com scroll horizontal */}
-      <div 
-        ref={scrollRef}
-        className="flex-1 w-full min-h-[280px] overflow-x-auto overflow-y-hidden scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100"
-      >
-        <div style={{ width: needsScroll ? `${chartWidth}px` : "100%", height: "100%" }}>
-          <Chart 
-            key={`chart-${escala}`}
-            options={options} 
-            series={series} 
-            type="line" 
-            height={270} 
-            width="100%"
-          />
-        </div>
+      <div className="flex-1 w-full min-h-[280px]">
+        <Chart
+          key={`chart-${escala}`}
+          options={options}
+          series={series}
+          type="line"
+          height={270}
+          width="100%"
+        />
       </div>
-
-      {/* Indicador de scroll */}
-      {needsScroll && (
-        <p className="text-xs text-slate-400 text-center mt-2 flex items-center justify-center gap-1">
-          <span className="material-symbols-rounded text-sm">swipe</span>
-          Arraste para ver histórico
-        </p>
-      )}
     </div>
   )
 }

@@ -116,7 +116,7 @@ export function HomeContent({ data, calendarData, retrospectiva }: HomeContentPr
           {/* Charts and Stats Row */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Score Chart - 2 columns on large screens */}
-            <div className="lg:col-span-2">
+            <div className="lg:col-span-2 min-w-0">
               {leader && challenger && (
                 <ScoreChart
                 data={evolucaoPontos}

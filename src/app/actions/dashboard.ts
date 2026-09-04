@@ -75,14 +75,10 @@ export async function getDashboardData(): Promise<DashboardData> {
         },
     })
 
-    // Buscar últimos 90 dias para permitir visualização por semanas/meses
-    const noventaDiasAtras = new Date(hoje)
-    noventaDiasAtras.setDate(noventaDiasAtras.getDate() - 89)
-
+    // Busca todo o histórico de pontos para permitir visualização por semanas/meses
     const evolucao = await prisma.pontuacaoDiaria.findMany({
         where: {
             data: {
-                gte: noventaDiasAtras,
                 lte: hoje,
             },
         },
@@ -187,10 +183,16 @@ export async function getDashboardData(): Promise<DashboardData> {
         }
     }
 
-    // Gera array de todos os dias dos últimos 90 dias
+    // Gera array de todos os dias desde o primeiro registro de pontos
     const evolucaoPontos: DashboardData["evolucaoPontos"] = []
-    
-    for (let i = 89; i >= 0; i--) {
+
+    const primeiraData = evolucao[0]?.data ?? hoje
+    const diasTotais = Math.max(
+        0,
+        Math.round((hoje.getTime() - primeiraData.getTime()) / (1000 * 60 * 60 * 24))
+    )
+
+    for (let i = diasTotais; i >= 0; i--) {
         const targetDate = new Date(hoje)
         targetDate.setUTCDate(targetDate.getUTCDate() - i)
         const dateKey = formatDateFromDb(targetDate)
