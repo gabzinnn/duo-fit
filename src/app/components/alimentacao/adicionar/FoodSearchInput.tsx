@@ -203,6 +203,9 @@ export function FoodSearchInput({ usuarioId, onSelect, onCreateClick }: FoodSear
                 type="number"
                 value={quantidade}
                 onChange={(e) => setQuantidade(Number(e.target.value))}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleAdd()
+                }}
                 className="w-20 sm:w-24 py-3 px-4 bg-slate-50 border border-slate-200 rounded-l-xl
                   focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none text-slate-900"
               />
