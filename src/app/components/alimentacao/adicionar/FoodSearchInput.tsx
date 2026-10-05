@@ -105,6 +105,7 @@ export function FoodSearchInput({ usuarioId, onSelect, onCreateClick }: FoodSear
     setSelectedFood(null)
     setQuantidade(100)
     setPesoUnidadeInput("")
+    inputRef.current?.focus()
   }
 
   return (
