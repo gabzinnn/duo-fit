@@ -201,6 +201,15 @@ export function AddMealContent() {
             unidade: item.unidade,
           }
 
+          if (!isTempItem && !isPreCalculated) {
+            payload.baseOverride = {
+              calorias: item.calorias,
+              proteinas: item.proteinas,
+              carboidratos: item.carboidratos,
+              gorduras: item.gorduras,
+            }
+          }
+
           if (isTempItem) {
             payload.nome = item.nome
 

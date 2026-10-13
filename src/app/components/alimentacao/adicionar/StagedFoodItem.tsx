@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { calcularMultiplicador } from "@/utils/calcular-multiplicador"
+import { atualizarValoresAlimento } from "@/app/actions/refeicao"
 
 export interface StagedItem {
   id: string // Unique key for list
@@ -33,6 +34,7 @@ export function StagedFoodItem({ item, onRemove, onUpdate }: StagedFoodItemProps
   const [baseProteinas, setBaseProteinas] = useState(item.proteinas)
   const [baseCarboidratos, setBaseCarboidratos] = useState(item.carboidratos)
   const [baseGorduras, setBaseGorduras] = useState(item.gorduras)
+  const [salvarNoAlimento, setSalvarNoAlimento] = useState(true)
 
   // Check if unit uses weight-based calculation (g, ml)
   const isWeightUnit = (unit: string) => unit === "g" || unit === "ml"
@@ -60,6 +62,20 @@ export function StagedFoodItem({ item, onRemove, onUpdate }: StagedFoodItemProps
   }
 
   const handleSave = () => {
+    const baseMudou =
+      baseCalorias !== item.calorias ||
+      baseProteinas !== item.proteinas ||
+      baseCarboidratos !== item.carboidratos ||
+      baseGorduras !== item.gorduras
+    // Alimento do catálogo: grava os novos valores base para as próximas refeições
+    if (salvarNoAlimento && baseMudou && item.alimentoId > 0 && !item.isPreCalculated) {
+      atualizarValoresAlimento(item.alimentoId, {
+        calorias: baseCalorias,
+        proteinas: baseProteinas,
+        carboidratos: baseCarboidratos,
+        gorduras: baseGorduras,
+      }).catch((e) => console.error("Erro ao atualizar alimento:", e))
+    }
     // Save with the new quantity/unit and updated base values
     onUpdate(item.id, {
       quantidade: editQuantidade,
@@ -213,6 +229,17 @@ export function StagedFoodItem({ item, onRemove, onUpdate }: StagedFoodItemProps
               />
             </div>
           </div>
+          {item.alimentoId > 0 && !item.isPreCalculated && (
+            <label className="flex items-center gap-2 mt-2 text-xs text-slate-500 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={salvarNoAlimento}
+                onChange={(e) => setSalvarNoAlimento(e.target.checked)}
+                className="accent-primary"
+              />
+              Salvar no alimento (vale para as próximas refeições)
+            </label>
+          )}
         </details>
 
         {/* Actions */}

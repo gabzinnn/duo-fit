@@ -8,15 +8,27 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "")
 
 type Parts = (string | { inlineData: { mimeType: string; data: string } })[]
 
-// Tenta o flash (rápido/barato); se estiver sobrecarregado (503) cai para o pro (mais potente).
+// Tenta os modelos do mais novo ao mais velho; se um estiver sobrecarregado (503), sem cota do free tier (429)
+// ou não existir mais (404), cai para o próximo.
+const MODELOS = [
+    "gemini-3.8-flash",
+    "gemini-3.7-flash",
+    "gemini-3.6-flash",
+    "gemini-3.5-flash",
+    "gemini-3-flash-preview",
+    "gemini-3.5-flash-lite",
+    "gemini-2.5-flash",
+]
+
 async function gerarComFallback(parts: Parts) {
-    try {
-        return await genAI.getGenerativeModel({ model: "gemini-3.5-flash" }).generateContent(parts)
-    } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error)
-        if (!/503|overload|unavailable|high demand/i.test(msg)) throw error
-        console.warn("gemini-3.5-flash indisponível, usando gemini-3-flash:", msg)
-        return await genAI.getGenerativeModel({ model: "gemini-3-flash" }).generateContent(parts)
+    for (let i = 0; ; i++) {
+        try {
+            return await genAI.getGenerativeModel({ model: MODELOS[i] }).generateContent(parts)
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : String(error)
+            if (i === MODELOS.length - 1 || !/503|429|404|overload|unavailable|high demand|quota|not found/i.test(msg)) throw error
+            console.warn(`${MODELOS[i]} indisponível, usando ${MODELOS[i + 1]}:`, msg)
+        }
     }
 }
 

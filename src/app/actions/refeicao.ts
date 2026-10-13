@@ -28,6 +28,8 @@ export interface ItemRefeicaoInput {
     proteinas?: number
     carboidratos?: number
     gorduras?: number
+    // Valores base (por 100g/unidade) editados só para esta refeição, em alimento já existente
+    baseOverride?: { calorias: number; proteinas: number; carboidratos: number; gorduras: number }
 }
 
 // =========================
@@ -103,6 +105,21 @@ export async function atualizarPesoUnidade(alimentoId: number, pesoUnidade: numb
     await prisma.alimento.update({
         where: { id: alimentoId },
         data: { pesoUnidade },
+    })
+}
+
+// =========================
+// ATUALIZAR VALORES BASE (por 100g ou por unidade) — só afeta refeições futuras,
+// as já salvas guardam calorias/macros próprios em AlimentoRefeicao
+// =========================
+
+export async function atualizarValoresAlimento(
+    alimentoId: number,
+    valores: { calorias: number; proteinas: number; carboidratos: number; gorduras: number }
+) {
+    await prisma.alimento.update({
+        where: { id: alimentoId },
+        data: valores,
     })
 }
 
@@ -185,10 +202,12 @@ export async function salvarRefeicao(
         if (!alimento) throw new Error(`Alimento ${item.alimentoId} não encontrado`)
 
         const multiplier = calcularMultiplicador(item.quantidade, item.unidade, alimento.pesoUnidade)
-        const calorias = alimento.calorias * multiplier
-        const proteinas = alimento.proteinas * multiplier
-        const carboidratos = alimento.carboidratos * multiplier
-        const gorduras = alimento.gorduras * multiplier
+        // Alimento existente com valores base editados só para esta refeição: usa os enviados
+        const base = item.baseOverride ?? alimento
+        const calorias = base.calorias * multiplier
+        const proteinas = base.proteinas * multiplier
+        const carboidratos = base.carboidratos * multiplier
+        const gorduras = base.gorduras * multiplier
 
         totalCalorias += calorias
         totalProteinas += proteinas
