@@ -21,6 +21,7 @@ export function FoodSearchInput({ usuarioId, onSelect, onCreateClick }: FoodSear
   const [selectedFood, setSelectedFood] = useState<AlimentoNormalizado | null>(null)
   const [pesoUnidadeInput, setPesoUnidadeInput] = useState("")
   const [editandoPeso, setEditandoPeso] = useState(false)
+  const [highlightedIndex, setHighlightedIndex] = useState(-1)
   const inputRef = useRef<HTMLInputElement>(null)
   const resultsRef = useRef<HTMLDivElement>(null)
   const quantidadeInputRef = useRef<HTMLInputElement>(null)
@@ -42,6 +43,7 @@ export function FoodSearchInput({ usuarioId, onSelect, onCreateClick }: FoodSear
       setLoading(true)
       const data = await buscarAlimentos(query, usuarioId)
       setResults(data)
+      setHighlightedIndex(-1)
       setLoading(false)
       setShowResults(true)
     }, 300)
@@ -70,6 +72,7 @@ export function FoodSearchInput({ usuarioId, onSelect, onCreateClick }: FoodSear
     setSelectedFood(alimento)
     setQuery(alimento.nome)
     setShowResults(false)
+    setHighlightedIndex(-1)
     setPesoUnidadeInput("")
     setEditandoPeso(false)
     requestAnimationFrame(() => quantidadeInputRef.current?.select())
@@ -129,6 +132,20 @@ export function FoodSearchInput({ usuarioId, onSelect, onCreateClick }: FoodSear
                 setSelectedFood(null)
               }}
               onFocus={() => results.length > 0 && setShowResults(true)}
+              onKeyDown={(e) => {
+                if (!showResults || results.length === 0) return
+                if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                  e.preventDefault()
+                  const next = e.key === "ArrowDown"
+                    ? Math.min(highlightedIndex + 1, results.length - 1)
+                    : Math.max(highlightedIndex - 1, 0)
+                  setHighlightedIndex(next)
+                  resultsRef.current?.children[next]?.scrollIntoView({ block: "nearest" })
+                } else if (e.key === "Enter" && highlightedIndex >= 0) {
+                  e.preventDefault()
+                  handleSelectFood(results[highlightedIndex])
+                }
+              }}
               placeholder="Ex: Peito de frango grelhado, Arroz integral..."
               className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-xl 
                 focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none 
@@ -153,7 +170,9 @@ export function FoodSearchInput({ usuarioId, onSelect, onCreateClick }: FoodSear
                     key={`${alimento.origem}-${alimento.id ?? idx}`}
                     type="button"
                     onClick={() => handleSelectFood(alimento)}
-                    className="w-full px-4 py-3 text-left hover:bg-slate-50 flex justify-between items-center border-b border-slate-100 last:border-0 cursor-pointer"
+                    className={`w-full px-4 py-3 text-left hover:bg-slate-50 flex justify-between items-center border-b border-slate-100 last:border-0 cursor-pointer ${
+                      idx === highlightedIndex ? "bg-slate-100" : ""
+                    }`}
                   >
                     <div>
                       <p className="font-medium text-slate-900">{alimento.nome}</p>
