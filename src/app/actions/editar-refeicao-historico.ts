@@ -31,12 +31,18 @@ async function recalcularDiario(usuarioId: number, data: Date) {
     const totalCarbos = refeicoesDoDia.reduce((sum, r) => sum + r.totalCarbos, 0)
     const totalGorduras = refeicoesDoDia.reduce((sum, r) => sum + r.totalGorduras, 0)
 
-    // Get user's calorie goal
-    const usuario = await prisma.usuario.findUnique({
-        where: { id: usuarioId },
-        select: { metaCalorias: true }
-    })
-    const metaCalorias = usuario?.metaCalorias ?? 2000
+    // Use the goal snapshotted for this day; fall back to user's current goal for new days
+    const [existente, usuario] = await Promise.all([
+        prisma.caloriasDiarias.findUnique({
+            where: { usuarioId_data: { usuarioId, data: dateKey } },
+            select: { metaCalorias: true }
+        }),
+        prisma.usuario.findUnique({
+            where: { id: usuarioId },
+            select: { metaCalorias: true }
+        })
+    ])
+    const metaCalorias = existente?.metaCalorias ?? usuario?.metaCalorias ?? 2000
 
     // Check if goal is met (calories > 0 AND <= meta)
     const metaAtingida = totalCalorias > 0 && totalCalorias <= metaCalorias
@@ -267,6 +273,57 @@ export async function editarQuantidadeAlimento(alimentoRefeicaoId: number, novaQ
     await recalcularDiario(alimentoRefeicao.refeicao.usuarioId, alimentoRefeicao.refeicao.data)
 
     revalidatePath("/alimentacao/historico")
+    revalidatePath("/alimentacao")
+    revalidatePath("/home")
+
+    return { success: true }
+}
+
+export interface MetasUsuario {
+    calorias: number
+    proteinas: number
+    carboidratos: number
+    gorduras: number
+}
+
+/**
+ * Atualiza as metas do usuário a partir de hoje.
+ * Dias anteriores mantêm a meta de calorias salva em CaloriasDiarias.
+ * ponytail: metas de macros não têm snapshot por dia (só exibição, não dão pontos);
+ * adicionar colunas em CaloriasDiarias se o histórico de macros passar a importar.
+ */
+export async function atualizarMetas(usuarioId: number, metas: MetasUsuario) {
+    if (!Number.isFinite(metas.calorias) || metas.calorias < 500 || metas.calorias > 10000) {
+        return { success: false, error: "Meta de calorias deve estar entre 500 e 10000 kcal" }
+    }
+    const macros = [metas.proteinas, metas.carboidratos, metas.gorduras]
+    if (macros.some((g) => !Number.isFinite(g) || g < 0 || g > 1000)) {
+        return { success: false, error: "Metas de macros devem estar entre 0 e 1000 g" }
+    }
+    const novaMeta = metas.calorias
+
+    const agora = new Date()
+    const hoje = new Date(agora.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }) + "T00:00:00.000Z")
+
+    await prisma.$transaction([
+        prisma.usuario.update({
+            where: { id: usuarioId },
+            data: {
+                metaCalorias: novaMeta,
+                metaProteinas: metas.proteinas,
+                metaCarboidratos: metas.carboidratos,
+                metaGorduras: metas.gorduras,
+            }
+        }),
+        prisma.caloriasDiarias.updateMany({
+            where: { usuarioId, data: { gte: hoje } },
+            data: { metaCalorias: novaMeta }
+        })
+    ])
+
+    // Re-evaluate today's goal/points with the new meta
+    await recalcularDiario(usuarioId, agora)
+
     revalidatePath("/alimentacao")
     revalidatePath("/home")
 

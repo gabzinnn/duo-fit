@@ -1,7 +1,7 @@
 "use client"
 
 import dynamic from "next/dynamic"
-import { useState, useMemo } from "react"
+import { useState, useMemo, useRef } from "react"
 
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false })
 
@@ -19,6 +19,15 @@ interface ScoreChartProps {
   usuario2Cor: string
 }
 
+interface Grupo {
+  inicio: Date
+  fim: Date // último dia do período (pode ser futuro na semana/mês atual)
+  usuario1: number
+  usuario2: number
+}
+
+const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
+
 function parseDate(dateStr: string): Date {
   const [day, month, year] = dateStr.split("/").map(Number)
   return new Date(year, month - 1, day)
@@ -26,41 +35,34 @@ function parseDate(dateStr: string): Date {
 
 // Agrupa TODO o histórico, inclusive dias/períodos zerados, para o eixo X ser contínuo.
 // data já vem em ordem cronológica com todos os dias, então a ordem de inserção do Map basta.
-function agruparPorEscala(
-  data: ScoreChartProps["data"],
-  escala: EscalaTempo
-): { data: string; usuario1: number; usuario2: number }[] {
-  const meses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
-  const grupos = new Map<string, { usuario1: number; usuario2: number }>()
+function agruparPorEscala(data: ScoreChartProps["data"], escala: EscalaTempo): Grupo[] {
+  const grupos = new Map<number, Grupo>()
 
   data.forEach((item) => {
     const date = parseDate(item.data)
-    let chave: string
+    let inicio: Date
+    let fim: Date
 
     if (escala === "dias") {
-      chave = item.data
+      inicio = fim = date
     } else if (escala === "semanas") {
-      const inicioSemana = new Date(date)
-      inicioSemana.setDate(date.getDate() - date.getDay())
-      const dia = inicioSemana.getDate().toString().padStart(2, "0")
-      const mes = (inicioSemana.getMonth() + 1).toString().padStart(2, "0")
-      chave = `${dia}/${mes}/${inicioSemana.getFullYear()}`
+      inicio = new Date(date.getFullYear(), date.getMonth(), date.getDate() - date.getDay())
+      fim = new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate() + 6)
     } else {
-      chave = `${meses[date.getMonth()]}/${date.getFullYear().toString().slice(-2)}`
+      inicio = new Date(date.getFullYear(), date.getMonth(), 1)
+      fim = new Date(date.getFullYear(), date.getMonth() + 1, 0)
     }
 
     // SOMA os pontos (não média) para semanas/meses
-    const grupo = grupos.get(chave) ?? { usuario1: 0, usuario2: 0 }
+    const chave = inicio.getTime()
+    const grupo = grupos.get(chave) ?? { inicio, fim, usuario1: 0, usuario2: 0 }
     grupo.usuario1 += item.usuario1
     grupo.usuario2 += item.usuario2
     grupos.set(chave, grupo)
   })
 
-  return Array.from(grupos, ([data, v]) => ({ data, ...v }))
+  return Array.from(grupos.values())
 }
-
-// Chaves de dias/semanas levam o ano (evita colisão); só exibimos dd/mm
-const rotulo = (chave: string) => chave.length === 10 ? chave.slice(0, 5) : chave
 
 const TAMANHO_JANELA: Record<EscalaTempo, number> = { dias: 14, semanas: 12, meses: 12 }
 
@@ -78,25 +80,46 @@ export function ScoreChart({
   usuario2Cor,
 }: ScoreChartProps) {
   const [escala, setEscala] = useState<EscalaTempo>("dias")
-  // 0 = janela mais recente; cada +1 volta uma janela no tempo
-  const [pagina, setPagina] = useState(0)
+  // Último dia visível; null = acompanha o presente. Guardar uma data (e não uma página)
+  // mantém o mesmo trecho do histórico ao trocar de escala.
+  const [ancora, setAncora] = useState<Date | null>(null)
+  const arraste = useRef<{ x: number; fim: number } | null>(null)
+  const rodaAcumulada = useRef(0)
 
-  const todos = useMemo(() => agruparPorEscala(data, escala), [data, escala])
+  const grupos = useMemo(() => agruparPorEscala(data, escala), [data, escala])
+  const hoje = data.length ? parseDate(data[data.length - 1].data) : new Date()
 
-  const tamanho = TAMANHO_JANELA[escala]
-  const fim = Math.max(0, todos.length - pagina * tamanho)
-  const inicio = Math.max(0, fim - tamanho)
-  const janela = useMemo(() => todos.slice(inicio, fim), [todos, inicio, fim])
-  const temAnterior = inicio > 0
-  const temProximo = pagina > 0
+  const tamanho = Math.min(TAMANHO_JANELA[escala], grupos.length)
+  const idxAncora = ancora ? grupos.findLastIndex((g) => g.inicio <= ancora) : grupos.length - 1
+  const fim = Math.min(grupos.length, Math.max(tamanho, idxAncora + 1))
+  const inicio = fim - tamanho
+  const janela = useMemo(() => grupos.slice(inicio, fim), [grupos, inicio, fim])
+  const noPresente = fim === grupos.length
+
+  // Escala Y fixa por escala de tempo, para não "pular" enquanto desliza
+  const maxY = useMemo(
+    () => Math.max(1, ...grupos.map((g) => Math.max(g.usuario1, g.usuario2))),
+    [grupos]
+  )
+
+  const irPara = (novoFim: number) => {
+    const alvo = Math.min(grupos.length, Math.max(tamanho, novoFim))
+    if (alvo === fim) return
+    setAncora(alvo === grupos.length ? null : grupos[alvo - 1].fim)
+  }
+
+  const formatarDia = (d: Date) => {
+    const base = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`
+    return d.getFullYear() === hoje.getFullYear() ? base : `${base}/${String(d.getFullYear()).slice(-2)}`
+  }
+  const rotulo = (g: Grupo) =>
+    escala === "meses"
+      ? `${MESES[g.inicio.getMonth()]}/${String(g.inicio.getFullYear()).slice(-2)}`
+      : formatarDia(g.inicio)
+  const parcial = (g: Grupo) => escala !== "dias" && g.fim > hoje
 
   const cor1 = usuario1Cor === "AMARELO" ? "#ffb900" : "#9333ea"
   const cor2 = usuario2Cor === "AMARELO" ? "#ffb900" : "#9333ea"
-
-  const trocarEscala = (novaEscala: EscalaTempo) => {
-    setEscala(novaEscala)
-    setPagina(0)
-  }
 
   const options: ApexCharts.ApexOptions = useMemo(() => ({
     chart: {
@@ -109,6 +132,8 @@ export function ScoreChart({
         enabled: true,
         easing: "easeinout",
         speed: 300,
+        // Sem animação ao deslizar, senão o gráfico "treme" a cada passo
+        dynamicAnimation: { enabled: false },
       },
       redrawOnParentResize: true,
     },
@@ -124,7 +149,7 @@ export function ScoreChart({
       hover: { size: 6 },
     },
     xaxis: {
-      categories: janela.map((d) => rotulo(d.data)),
+      categories: janela.map(rotulo),
       labels: {
         hideOverlappingLabels: true,
         style: {
@@ -139,6 +164,7 @@ export function ScoreChart({
     },
     yaxis: {
       min: 0,
+      max: maxY,
       forceNiceScale: true,
       labels: {
         style: {
@@ -160,15 +186,17 @@ export function ScoreChart({
       intersect: false,
       x: {
         formatter: (_, { dataPointIndex }) => {
-          const label = rotulo(janela[dataPointIndex]?.data ?? "")
-          return escala === "semanas" ? `Semana de ${label}` : label
+          const g = janela[dataPointIndex]
+          if (!g) return ""
+          const label = escala === "semanas" ? `Semana de ${rotulo(g)}` : rotulo(g)
+          return parcial(g) ? `${label} (parcial)` : label
         },
       },
       y: {
         formatter: (val) => `${val} pts`,
       },
     },
-  }), [escala, janela, cor1, cor2])
+  }), [escala, janela, cor1, cor2, maxY])
 
   const series = useMemo(() => [
     {
@@ -184,7 +212,7 @@ export function ScoreChart({
   if (!data.some((d) => d.usuario1 > 0 || d.usuario2 > 0)) {
     return (
       <div className="bg-white rounded-xl p-6 border border-slate-100 shadow-sm flex flex-col items-center justify-center min-h-[340px]">
-        <span className="material-symbols-rounded text-4xl text-slate-300 mb-2">
+        <span className="material-symbols-outlined text-4xl text-slate-300 mb-2">
           trending_up
         </span>
         <p className="text-slate-500 text-sm">Nenhum dado de pontuação ainda</p>
@@ -194,9 +222,15 @@ export function ScoreChart({
 
   const total1 = janela.reduce((s, d) => s + d.usuario1, 0)
   const total2 = janela.reduce((s, d) => s + d.usuario2, 0)
+  const ultimo = janela[janela.length - 1]
   const rotuloIntervalo = janela.length
-    ? `${rotulo(janela[0].data)} – ${rotulo(janela[janela.length - 1].data)}`
+    ? escala === "meses"
+      ? `${rotulo(janela[0])} – ${rotulo(ultimo)}`
+      : `${formatarDia(janela[0].inicio)} – ${formatarDia(ultimo.fim > hoje ? hoje : ultimo.fim)}`
     : ""
+
+  // Passo em px de um ponto do gráfico, para arrastar/rolar acompanhar o dedo
+  const passo = (el: HTMLElement) => el.clientWidth / Math.max(1, tamanho)
 
   return (
     <div className="bg-white rounded-xl p-6 border border-slate-100 shadow-sm flex flex-col">
@@ -205,8 +239,14 @@ export function ScoreChart({
           <h3 className="text-lg font-bold text-slate-900">
             Evolução da Pontuação
           </h3>
-          <p className="text-sm text-slate-500">
-            Total no período: {total1} × {total2} pts
+          <p className="text-sm text-slate-500 flex items-center gap-1.5">
+            Total no período:
+            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: cor1 }} />
+            <span className="font-semibold text-slate-700">{total1}</span>
+            ×
+            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: cor2 }} />
+            <span className="font-semibold text-slate-700">{total2}</span>
+            pts
           </p>
         </div>
         <div className="flex gap-4 items-center">
@@ -237,8 +277,8 @@ export function ScoreChart({
           {escalas.map((e) => (
             <button
               key={e.valor}
-              onClick={() => trocarEscala(e.valor)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+              onClick={() => setEscala(e.valor)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
                 escala === e.valor
                   ? "bg-white text-slate-900 shadow-sm"
                   : "text-slate-500 hover:text-slate-700"
@@ -249,31 +289,64 @@ export function ScoreChart({
           ))}
         </div>
 
-        {/* Navegação no tempo */}
+        {/* Navegação no tempo: setas pulam uma janela inteira */}
         <div className="flex items-center gap-1">
           <button
-            onClick={() => setPagina((p) => p + 1)}
-            disabled={!temAnterior}
+            onClick={() => irPara(fim - tamanho)}
+            disabled={inicio === 0}
             aria-label="Período anterior"
-            className="p-1.5 rounded-md text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent"
+            className="p-2 rounded-md text-slate-600 hover:bg-slate-100 cursor-pointer disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-default"
           >
-            <span className="material-symbols-rounded text-xl leading-none">chevron_left</span>
+            <span className="material-symbols-outlined text-xl leading-none">chevron_left</span>
           </button>
           <span className="text-xs font-medium text-slate-600 min-w-[110px] text-center">
             {rotuloIntervalo}
           </span>
           <button
-            onClick={() => setPagina((p) => p - 1)}
-            disabled={!temProximo}
+            onClick={() => irPara(fim + tamanho)}
+            disabled={noPresente}
             aria-label="Próximo período"
-            className="p-1.5 rounded-md text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent"
+            className="p-2 rounded-md text-slate-600 hover:bg-slate-100 cursor-pointer disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-default"
           >
-            <span className="material-symbols-rounded text-xl leading-none">chevron_right</span>
+            <span className="material-symbols-outlined text-xl leading-none">chevron_right</span>
           </button>
+          {!noPresente && (
+            <button
+              onClick={() => setAncora(null)}
+              className="ml-1 px-2 py-1 text-xs font-medium text-primary rounded-md hover:bg-slate-100 cursor-pointer"
+            >
+              Atual
+            </button>
+          )}
         </div>
       </div>
 
-      <div className="flex-1 w-full min-h-[280px]">
+      {/* Arrastar (dedo/mouse) ou rolar na horizontal (trackpad) desliza um ponto por vez */}
+      <div
+        className="flex-1 w-full min-h-[280px] select-none touch-pan-y overscroll-x-contain cursor-grab active:cursor-grabbing"
+        onPointerDown={(e) => {
+          if (e.pointerType === "mouse" && e.button !== 0) return
+          arraste.current = { x: e.clientX, fim }
+        }}
+        onPointerMove={(e) => {
+          if (!arraste.current) return
+          const delta = Math.round((arraste.current.x - e.clientX) / passo(e.currentTarget))
+          irPara(arraste.current.fim + delta)
+        }}
+        onPointerUp={() => (arraste.current = null)}
+        onPointerLeave={() => (arraste.current = null)}
+        onPointerCancel={() => (arraste.current = null)}
+        onWheel={(e) => {
+          if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return
+          rodaAcumulada.current += e.deltaX
+          const p = passo(e.currentTarget)
+          const n = Math.trunc(rodaAcumulada.current / p)
+          if (n) {
+            rodaAcumulada.current -= n * p
+            irPara(fim + n)
+          }
+        }}
+      >
         <Chart
           options={options}
           series={series}
@@ -282,6 +355,22 @@ export function ScoreChart({
           width="100%"
         />
       </div>
+
+      {grupos.length > tamanho && (
+        <input
+          type="range"
+          min={tamanho}
+          max={grupos.length}
+          value={fim}
+          onChange={(e) => irPara(Number(e.target.value))}
+          aria-label="Deslizar pelo histórico"
+          className="w-full mt-2 h-1.5 appearance-none rounded-full bg-slate-100 cursor-pointer
+            [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4
+            [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-slate-300 [&::-webkit-slider-thumb]:hover:bg-slate-400
+            [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:border-0
+            [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-slate-300"
+        />
+      )}
     </div>
   )
 }

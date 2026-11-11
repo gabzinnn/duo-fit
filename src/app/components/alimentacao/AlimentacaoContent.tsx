@@ -111,6 +111,9 @@ export function AlimentacaoContent() {
                 caloriasIngeridas={data.caloriasIngeridas}
                 metaCalorias={data.metaCalorias}
                 macros={data.macros}
+                usuarioId={usuario?.id}
+                editavel={isToday}
+                onMetaChange={triggerRefresh}
               />
             </div>
 

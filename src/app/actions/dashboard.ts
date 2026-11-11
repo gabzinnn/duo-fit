@@ -27,16 +27,24 @@ export interface DashboardData {
         metaCalorias: number
     }[]
     atividadesHoje: {
-        id: number
+        id: string
         usuarioId: number
         nomeUsuario: string
         corUsuario: string
         tipo: string
         descricao: string
-        pontos: number
+        destaque: string // "+2pts" para exercício, "540 kcal" para refeição
         icone: string | null
         data: Date
     }[]
+}
+
+const NOMES_REFEICAO: Record<string, string> = {
+    CAFE_DA_MANHA: "Café da Manhã",
+    ALMOCO: "Almoço",
+    JANTAR: "Jantar",
+    LANCHE: "Lanche",
+    OUTRO: "Refeição",
 }
 
 export async function getDashboardData(): Promise<DashboardData> {
@@ -97,16 +105,16 @@ export async function getDashboardData(): Promise<DashboardData> {
         },
     })
 
-    // Get today's activities
-    const atividades = await prisma.atividade.findMany({
-        where: {
-            data: {
-                gte: hoje,
-            },
-        },
-        orderBy: { data: "desc" },
-        take: 10,
-    })
+    // Today's activity feed comes straight from exercises and meals (Brazil day boundaries),
+    // so edits/deletes are always reflected. The Atividade table was never populated.
+    const periodoHoje = {
+        gte: new Date(todayBrazilDate + "T00:00:00.000-03:00"),
+        lte: new Date(todayBrazilDate + "T23:59:59.999-03:00"),
+    }
+    const [exerciciosHoje, refeicoesHoje] = await Promise.all([
+        prisma.exercicio.findMany({ where: { data: periodoHoje } }),
+        prisma.refeicao.findMany({ where: { data: periodoHoje } }),
+    ])
 
     // Map activities with user info
     const usuarioMap = new Map(usuarios.map((u) => [u.id, u]))
@@ -176,9 +184,10 @@ export async function getDashboardData(): Promise<DashboardData> {
         }
 
         const entry = evolucaoMap.get(dateKey)!
-        if (e.usuarioId === usuarios[0]?.id) {
+        // Same order as usuariosData (leader first), which is how the chart labels the series
+        if (e.usuarioId === usuariosData[0]?.id) {
             entry.usuario1 = e.pontosTotais
-        } else if (e.usuarioId === usuarios[1]?.id) {
+        } else if (e.usuarioId === usuariosData[1]?.id) {
             entry.usuario2 = e.pontosTotais
         }
     }
@@ -219,20 +228,31 @@ export async function getDashboardData(): Promise<DashboardData> {
         }
     })
 
-    const atividadesHoje = atividades.map((a) => {
-        const user = usuarioMap.get(a.usuarioId)
-        return {
-            id: a.id,
-            usuarioId: a.usuarioId,
-            nomeUsuario: user?.nome ?? "Usuário",
-            corUsuario: user?.cor ?? "AMARELO",
-            tipo: a.tipo,
-            descricao: a.descricao,
-            pontos: a.pontos,
-            icone: a.icone,
-            data: a.data,
-        }
-    })
+    const comUsuario = (usuarioId: number) => {
+        const user = usuarioMap.get(usuarioId)
+        return { usuarioId, nomeUsuario: user?.nome ?? "Usuário", corUsuario: user?.cor ?? "AMARELO" }
+    }
+
+    const atividadesHoje: DashboardData["atividadesHoje"] = [
+        ...exerciciosHoje.map((e) => ({
+            id: `exercicio-${e.id}`,
+            ...comUsuario(e.usuarioId),
+            tipo: "exercicio",
+            descricao: e.nome,
+            destaque: `+${e.pontos}pts`,
+            icone: e.tipo === "ACADEMIA" ? "fitness_center" : "directions_run",
+            data: e.data,
+        })),
+        ...refeicoesHoje.map((r) => ({
+            id: `refeicao-${r.id}`,
+            ...comUsuario(r.usuarioId),
+            tipo: "refeicao",
+            descricao: r.nome || NOMES_REFEICAO[r.tipo],
+            destaque: `${Math.round(r.totalCalorias)} kcal`,
+            icone: null, // Refeicao.icone is a Lucide name; the feed uses Material Symbols ("restaurant" fallback)
+            data: r.data,
+        })),
+    ].sort((a, b) => b.data.getTime() - a.data.getTime())
 
     return {
         usuarios: usuariosData,

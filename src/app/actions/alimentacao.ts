@@ -108,7 +108,6 @@ export async function getAlimentacaoData(usuarioId: number | null, dateKey?: str
         prisma.usuario.findMany({ take: 2 }),
     ])
 
-    const metaCalorias = usuario?.metaCalorias ?? 2000
     const rival = usuarios.find((u) => u.id !== usuarioId)
 
     // For refeicao queries, we need local date boundaries
@@ -256,12 +255,10 @@ export async function getAlimentacaoData(usuarioId: number | null, dateKey?: str
             diaSemana: getDiaSemana(dateKey),
             // If day is marked as invalid, show 0%
             usuario: userCal && !userCal.registroInvalido
-                ? Math.round((userCal.caloriasIngeridas / metaCalorias) * 100)
+                ? Math.round((userCal.caloriasIngeridas / userCal.metaCalorias) * 100)
                 : 0,
             rival: rivalCal && !rivalCal.registroInvalido
-                ? Math.round(
-                    (rivalCal.caloriasIngeridas / (rival?.metaCalorias ?? 2000)) * 100
-                )
+                ? Math.round((rivalCal.caloriasIngeridas / rivalCal.metaCalorias) * 100)
                 : 0,
             isHoje,
             isFuturo,
@@ -291,7 +288,8 @@ export async function getAlimentacaoData(usuarioId: number | null, dateKey?: str
 
     return {
         caloriasIngeridas: caloriasDiarias?.caloriasIngeridas ?? 0,
-        metaCalorias,
+        // Past days keep the goal they were registered with
+        metaCalorias: caloriasDiarias?.metaCalorias ?? usuario?.metaCalorias ?? 2000,
         macros,
         refeicoes: refeicoesCompletas,
         refeicoesExtras,

@@ -1,15 +1,7 @@
+import type { DashboardData } from "@/app/actions/dashboard"
+
 interface ActivityFeedProps {
-  atividades: {
-    id: number
-    usuarioId: number
-    nomeUsuario: string
-    corUsuario: string
-    tipo: string
-    descricao: string
-    pontos: number
-    icone: string | null
-    data: Date
-  }[]
+  atividades: DashboardData["atividadesHoje"]
 }
 
 export function ActivityFeed({ atividades }: ActivityFeedProps) {
@@ -17,6 +9,7 @@ export function ActivityFeed({ atividades }: ActivityFeedProps) {
     return new Date(date).toLocaleTimeString("pt-BR", {
       hour: "2-digit",
       minute: "2-digit",
+      timeZone: "America/Sao_Paulo",
     })
   }
 
@@ -76,8 +69,8 @@ export function ActivityFeed({ atividades }: ActivityFeedProps) {
                   </p>
                 </div>
                 <div className="text-right">
-                  <span className="text-sm font-bold text-green-600">
-                    +{a.pontos}pts
+                  <span className={`text-sm font-bold ${a.tipo === "exercicio" ? "text-green-600" : "text-slate-500"}`}>
+                    {a.destaque}
                   </span>
                 </div>
               </div>

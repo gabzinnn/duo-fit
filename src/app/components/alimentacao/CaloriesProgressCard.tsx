@@ -1,16 +1,67 @@
+"use client"
+
+import { useState } from "react"
 import type { MacrosData } from "@/app/actions/alimentacao"
+import { atualizarMetas, type MetasUsuario } from "@/app/actions/editar-refeicao-historico"
+
+const CAMPOS_META: { chave: keyof MetasUsuario; label: string; unidade: string }[] = [
+  { chave: "calorias", label: "Calorias", unidade: "kcal" },
+  { chave: "proteinas", label: "Proteínas", unidade: "g" },
+  { chave: "carboidratos", label: "Carbos", unidade: "g" },
+  { chave: "gorduras", label: "Gorduras", unidade: "g" },
+]
 
 interface CaloriesProgressCardProps {
   caloriasIngeridas: number
   metaCalorias: number
   macros: MacrosData
+  usuarioId?: number
+  editavel?: boolean
+  onMetaChange?: () => void
 }
 
 export function CaloriesProgressCard({
   caloriasIngeridas,
   metaCalorias,
   macros,
+  usuarioId,
+  editavel = false,
+  onMetaChange,
 }: CaloriesProgressCardProps) {
+  const [editando, setEditando] = useState(false)
+  const [form, setForm] = useState<Record<keyof MetasUsuario, string>>({
+    calorias: "", proteinas: "", carboidratos: "", gorduras: "",
+  })
+  const [salvando, setSalvando] = useState(false)
+
+  const iniciarEdicao = () => {
+    setForm({
+      calorias: String(Math.round(metaCalorias)),
+      proteinas: String(Math.round(macros.proteinas.meta)),
+      carboidratos: String(Math.round(macros.carboidratos.meta)),
+      gorduras: String(Math.round(macros.gorduras.meta)),
+    })
+    setEditando(true)
+  }
+
+  const salvarMetas = async () => {
+    if (!usuarioId || salvando) return
+    setSalvando(true)
+    const result = await atualizarMetas(usuarioId, {
+      calorias: Number(form.calorias),
+      proteinas: Number(form.proteinas),
+      carboidratos: Number(form.carboidratos),
+      gorduras: Number(form.gorduras),
+    })
+    setSalvando(false)
+    if (!result.success) {
+      alert(result.error)
+      return
+    }
+    setEditando(false)
+    onMetaChange?.()
+  }
+
   const percent = Math.min((caloriasIngeridas / metaCalorias) * 100, 100)
   const circumference = 2 * Math.PI * 15.9155
   const caloriasRestantes = Math.max(0, metaCalorias - caloriasIngeridas)
@@ -59,12 +110,70 @@ export function CaloriesProgressCard({
           <span className="text-3xl lg:text-4xl font-black text-slate-900 tracking-tight">
             {Math.round(caloriasIngeridas)}
           </span>
-          <span className="text-sm font-medium text-slate-500">
+          <span className="text-sm font-medium text-slate-500 flex items-center gap-1">
             de {Math.round(metaCalorias)} kcal
+            {editavel && usuarioId && !editando && (
+              <button
+                onClick={iniciarEdicao}
+                aria-label="Editar metas"
+                title="Editar metas (vale a partir de hoje)"
+                className="text-slate-400 hover:text-primary cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-base">edit</span>
+              </button>
+            )}
           </span>
         </div>
       </div>
 
+      {editando ? (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            salvarMetas()
+          }}
+          onKeyDown={(e) => e.key === "Escape" && setEditando(false)}
+          className="w-full flex flex-col gap-3"
+        >
+          <div className="grid grid-cols-2 gap-3">
+            {CAMPOS_META.map(({ chave, label, unidade }, i) => (
+              <label key={chave} className="flex flex-col gap-1 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                {label} ({unidade})
+                <input
+                  type="number"
+                  autoFocus={i === 0}
+                  min={0}
+                  step="any"
+                  required
+                  value={form[chave]}
+                  disabled={salvando}
+                  onChange={(e) => setForm((f) => ({ ...f, [chave]: e.target.value }))}
+                  className="px-2 py-1.5 border border-slate-300 rounded-lg text-sm font-medium text-slate-900 normal-case tracking-normal"
+                />
+              </label>
+            ))}
+          </div>
+          <p className="text-xs text-slate-400 text-center">Vale a partir de hoje; dias anteriores mantêm a meta antiga.</p>
+          <div className="flex gap-2 justify-end">
+            <button
+              type="button"
+              onClick={() => setEditando(false)}
+              disabled={salvando}
+              className="px-3 py-1.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={salvando}
+              className="px-3 py-1.5 text-sm font-bold text-white bg-primary rounded-lg hover:opacity-90 cursor-pointer disabled:opacity-50"
+            >
+              {salvando ? "Salvando..." : "Salvar"}
+            </button>
+          </div>
+        </form>
+      ) : (
+      <>
       {/* Macros */}
       <div className="flex gap-6 lg:gap-8 w-full justify-center">
         <MacroProgress
@@ -94,6 +203,8 @@ export function CaloriesProgressCard({
           : `${Math.round(caloriasRestantes)} kcal restantes`
         }
       </p>
+      </>
+      )}
     </div>
   )
 }
